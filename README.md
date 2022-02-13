@@ -20,6 +20,6 @@ Which returns a nested list representing the expected tree, with a split on X1 a
 
 `[[1, 0.8104412867733357], None, [[2, 0.3317265864314578], None, None]]`
 
-Each node is a triplet containing the feature-index and split-point, the left-branch, and the right-branch. Terminal nodes are given as None.
+Each node is a triplet containing the feature-index and split-point of the node, the left-branch, and the right-branch. Terminal nodes are given as None.
 
 The cost-complexity criterion is also returned, for cross-validation of the alpha parameter.
