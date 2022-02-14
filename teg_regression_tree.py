@@ -3,7 +3,6 @@ import numpy as np
 #
 # Decision tree: Regression
 #
-
 def teg_regression_tree(X, y, maxDepth, alpha0):
 
     def teg_tree_scale(X, y, maxDepth, iDepth=0, node_index_v = [0]):
@@ -145,7 +144,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0):
 
     def print_tree(this_tree, C, nodes_collapsed):
         def print_tree_inner(this_tree, nodes_collapsed_choice):
-            if (nodes_collapsed_choice.count(this_tree[0][6]) == 0):
+            if (nodes_collapsed_choice.count(this_tree[0][6]) == 0 and not(np.isnan(this_tree[0][0]))):
                 print(this_tree[0][0:2])
                 print_tree_inner(this_tree[1], nodes_collapsed_choice)
                 print_tree_inner(this_tree[2], nodes_collapsed_choice)
@@ -155,7 +154,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0):
 
     def collapse_tree(this_tree, C, nodes_collapsed):
         def build_tree_inner(this_tree, nodes_collapsed_choice):
-            if (nodes_collapsed_choice.count(this_tree[0][6]) == 0):
+            if (nodes_collapsed_choice.count(this_tree[0][6]) == 0 and not(np.isnan(this_tree[0][0]))):
                 return [this_tree[0][0:2], build_tree_inner(this_tree[1], nodes_collapsed_choice), build_tree_inner(this_tree[2], nodes_collapsed_choice)]
         best_collapse_seq_end = np.argmin(C)
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
@@ -163,6 +162,9 @@ def teg_regression_tree(X, y, maxDepth, alpha0):
 
     tree0 = teg_tree_scale(X, y, maxDepth, alpha0)
     C, nodes_collapsed = prune_the_tree(tree0, alpha0)
+    print(tree0)
+    print(C)
+    print(nodes_collapsed)
     print_tree(tree0, C, nodes_collapsed)
     collapsed_tree = collapse_tree(tree0, C, nodes_collapsed)
     return collapsed_tree, min(C)
@@ -174,6 +176,21 @@ alpha0 = 0.5
 X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
 LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33)
+y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
+print(tree0)
+print(cost_complexity_criterion)
+
+# XOR problem
+nObs = 2000
+nPred = 6
+maxDepth = 4 # Max. number of splits
+alpha0 = 0.5
+X = np.random.random_sample(size=(nObs, nPred))
+y = 0.1 * np.random.random_sample(size=(nObs))
+LogicalInd = (X[:, 1] > 0.5) & (X[:, 2] < 0.5)
+y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
+LogicalInd = (X[:, 1] < 0.5) & (X[:, 2] > 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
 tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
 print(tree0)
