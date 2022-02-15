@@ -13,8 +13,9 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1):
         #print(node_index_v)
         SS_pre_split = f_SS(y)
         # Check whether maxdepth passed or y is empty
-        if (iDepth >= maxDepth) or (len(y) == 0) or (SS_pre_split== 0):
-            return [[np.NaN, np.NaN, SS_pre_split, 0, 0, 0, node_index_v[0], 0], np.NaN, np.NaN]
+        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split== 0):
+            terminal_node_pred = np.nanmean(y)
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
         # Create branches
         SS_best = np.inf
         SS_best_left = np.inf
@@ -35,7 +36,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1):
                     SS_best_right = SS_right
                     iFeature_best = iFeature
                     val_best = val
-        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth]
+        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
         # print(iDepth, best_split)
         ind_left = (X[:, iFeature_best] < val_best)
         ind_right = (X[:, iFeature_best] >= val_best)
@@ -51,8 +52,9 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1):
         #print(node_index_v)
         SS_pre_split = f_SS(y)
         # Check whether maxdepth passed or y is empty
-        if (iDepth >= maxDepth) or (len(y) == 0) or (SS_pre_split== 0):
-            return [[np.NaN, np.NaN, SS_pre_split, 0, 0, 0, node_index_v[0], 0], np.NaN, np.NaN]
+        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split== 0):
+            terminal_node_pred = np.nanmean(y)
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
         # Create branches
         SS_best = np.inf
         SS_best_left = np.inf
@@ -95,7 +97,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1):
                             iFeature_best = iFeature1
                             val_best = val1
                             #print('New best: ', iFeature1, iFeature2, SS_best)
-        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth]
+        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
         # print(iDepth, best_split)
         ind_left = (X[:, iFeature_best] < val_best)
         ind_right = (X[:, iFeature_best] >= val_best)
@@ -204,14 +206,17 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1):
 
     def print_tree(this_tree, C, nodes_collapsed):
         def print_tree_inner(this_tree, nodes_collapsed_choice):
-            if (nodes_collapsed_choice.count(this_tree[0][6]) == 0 and not(np.isnan(this_tree[0][0]))):
-                iDepth = int(this_tree[0][7])
-                indent0 = ''
-                for t in range(iDepth):
-                    indent0 = indent0 + '\t'
+            #print(this_tree[0][0])
+            iDepth = int(this_tree[0][7])
+            indent0 = ''
+            for t in range(iDepth):
+                indent0 = indent0 + '\t'
+            if nodes_collapsed_choice.count(this_tree[0][6]) == 0 and not(np.isnan(this_tree[0][0])):
                 print(indent0, this_tree[0][0:2])
                 print_tree_inner(this_tree[1], nodes_collapsed_choice)
                 print_tree_inner(this_tree[2], nodes_collapsed_choice)
+            else:
+                print(indent0, 'terminal node: ', np.nanmean(this_tree[0][-1]))
         best_collapse_seq_end = np.argmin(C)
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
         print_tree_inner(this_tree, nodes_collapsed_choice)
@@ -219,7 +224,11 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1):
     def collapse_tree(this_tree, C, nodes_collapsed):
         def build_tree_inner(this_tree, nodes_collapsed_choice):
             if (nodes_collapsed_choice.count(this_tree[0][6]) == 0 and not(np.isnan(this_tree[0][0]))):
-                return [this_tree[0][0:2], build_tree_inner(this_tree[1], nodes_collapsed_choice), build_tree_inner(this_tree[2], nodes_collapsed_choice)]
+                to_report = this_tree[0][0:2]
+                return [to_report, build_tree_inner(this_tree[1], nodes_collapsed_choice), build_tree_inner(this_tree[2], nodes_collapsed_choice)]
+            else:
+                to_report = np.nanmean(this_tree[0][-1])
+                return to_report
         best_collapse_seq_end = np.argmin(C)
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
         return build_tree_inner(this_tree, nodes_collapsed_choice)
@@ -242,7 +251,7 @@ maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
-LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33)
+LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
 # Traditional greedy tree
 tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0)
