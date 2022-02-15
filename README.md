@@ -18,14 +18,6 @@ tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
 print(tree0)
 print(cost_complexity_criterion)
 ```
-Which returns a nested list representing the expected tree, with a split on X1 around .8 and a second split for the right-branch on X2 at .33:
-
-`[[1, 0.8104412867733357], None, [[2, 0.3317265864314578], None, None]]`
-
-Each node is a triplet containing the feature-index and split-point of the node, the left-branch, and the right-branch. Terminal nodes are given as None.
-
-The cost-complexity criterion is also returned, for cross-validation of the alpha parameter.
-
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
 ```
@@ -37,6 +29,14 @@ The function prints out the tree as follows, with low and high branches starting
 			 terminal node:  0.053853440021861716
 		 terminal node:  0.05021075465460407
 ```
+
+The function also returns a nested list representing the tree:
+
+`[[1, 0.8125486774415731], 0.05188583804970138, [[2, 0.33236530087901717], [[4, 0.5128665191583686], 0.7623787750856714, 0.04541482950659097], 0.051131886885080774]]`
+
+Each non-terminal node is a triplet containing the feature-index and split-point of the node, the left-branch, and the right-branch. Terminal nodes are represented by the predicted value at that node.
+
+The cost-complexity criterion is also returned, for cross-validation of the alpha parameter.
 
 An XOR example where the traditional tree fails but the current implementation can deal with is as follows:
 
