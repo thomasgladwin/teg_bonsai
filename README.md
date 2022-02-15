@@ -72,6 +72,7 @@ This would (after a minute or so, it's not fast...) print out the correct soluti
 		 terminal node:  0.050296324591483414
 ```
 
+Thomas Edward Gladwin. (2022). thomasgladwin/teg_regression_tree: Release 0.1 (v0.1). Zenodo. https://doi.org/10.5281/zenodo.6096530
 
 [![DOI](https://zenodo.org/badge/458932097.svg)](https://zenodo.org/badge/latestdoi/458932097)
 
