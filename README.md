@@ -1,6 +1,8 @@
 # teg_regression_tree
 
-Practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with an added "two-step" to deal with "XOR" patterns. That is: for each possible split, all possible immediately following splits (for a given set of quantiles for the second split to keep computation time down; the median would seem to be the main one) are used to evaluate the first split. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split. It's mostly made in base Python, just uses some basic numpy for convenience.
+Practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with an added "two-step" variation to deal with "XOR" patterns. That is: for each possible split, all possible immediately following splits (for a given set of quantiles for the second split to keep computation time down; the median would seem to be the main one) are used to evaluate the first split. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
+
+It's mostly made in base Python, just uses some basic numpy for convenience.
 
 Example usage with sanity-check simulated data:
 ```
@@ -47,6 +49,10 @@ print(tree0)
 print(cost_complexity_criterion)
 ```
 
-To construct a traditional tree without the two-step variation, use:
+This would print out the correct solution, splitting first on X1 and then on each branch on X2:
 
-`tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0)`
+```
+ [1, 0.501237639249083]
+	 [2, 0.5021007129003712]
+	 [2, 0.5001143296214183]
+```
