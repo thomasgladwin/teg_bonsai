@@ -49,7 +49,7 @@ print(tree0)
 print(cost_complexity_criterion)
 ```
 
-This would (eventually...) print out the correct solution, splitting first on X1 and then on each branch on X2:
+This would (after a minute or so, it's not fast...) print out the correct solution, splitting first on X1 and then on each branch on X2:
 
 ```
  [1, 0.501237639249083]
