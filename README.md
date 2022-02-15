@@ -26,6 +26,18 @@ Each node is a triplet containing the feature-index and split-point of the node,
 
 The cost-complexity criterion is also returned, for cross-validation of the alpha parameter.
 
+The function prints out the tree as follows, with low and high branches (or terminal nodes) starting on different lines with the same indentation:
+
+```
+[1, 0.801759021024617]
+	 terminal node:  0.05093883665099461
+	 [2, 0.3300851521479208]
+		 [4, 0.5020172944285317]
+			 terminal node:  0.761327946019211
+			 terminal node:  0.053853440021861716
+		 terminal node:  0.05021075465460407
+```
+
 An XOR example where the traditional tree fails but the current implementation can deal with is as follows:
 
 ```
