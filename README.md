@@ -26,7 +26,7 @@ Each node is a triplet containing the feature-index and split-point of the node,
 
 The cost-complexity criterion is also returned, for cross-validation of the alpha parameter.
 
-The function prints out the tree as follows, with low and high branches (or terminal nodes) starting on different lines with the same indentation:
+The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
 ```
 [1, 0.801759021024617]
@@ -64,7 +64,11 @@ print(cost_complexity_criterion)
 This would (after a minute or so, it's not fast...) print out the correct solution, splitting first on X1 and then on each branch on X2:
 
 ```
- [1, 0.501237639249083]
-	 [2, 0.5021007129003712]
-	 [2, 0.5001143296214183]
+ [1, 0.500026730694157]
+	 [2, 0.5013652634065338]
+		 terminal node:  0.0495724290546912
+		 terminal node:  0.7629087465214373
+	 [2, 0.5010964456753848]
+		 terminal node:  0.7627006991381066
+		 terminal node:  0.050296324591483414
 ```
