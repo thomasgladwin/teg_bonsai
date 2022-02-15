@@ -1,6 +1,6 @@
 # teg_regression_tree
 
-Practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with an added "peek ahead" or "two-step" variation to deal with XOR patterns. That is: for each possible split, all possible immediately following splits (currently: for a limited set of quantiles for the second split to keep computation time down, trading off the precision of the peek-ahead) are used to evaluate the first split. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
+Practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with an added "peek ahead" or "two-step" variation to deal with XOR patterns. That is: for each possible split, all possible immediately following splits (currently: for a limited set of quantiles for the second split to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
 
 It's mostly made in base Python, just uses some basic numpy for convenience.
 
