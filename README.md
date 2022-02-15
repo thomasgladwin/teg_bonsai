@@ -71,3 +71,7 @@ This would (after a minute or so, it's not fast...) print out the correct soluti
 		 terminal node:  0.7627006991381066
 		 terminal node:  0.050296324591483414
 ```
+
+
+[![DOI](https://zenodo.org/badge/458932097.svg)](https://zenodo.org/badge/latestdoi/458932097)
+
