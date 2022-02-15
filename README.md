@@ -12,22 +12,21 @@ maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
-LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33)
+LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
-print(tree0)
-print(cost_complexity_criterion)
+# Traditional greedy tree
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0)
 ```
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
 ```
-[1, 0.801759021024617]
-	 terminal node:  0.05093883665099461
-	 [2, 0.3300851521479208]
-		 [4, 0.5020172944285317]
-			 terminal node:  0.761327946019211
-			 terminal node:  0.053853440021861716
-		 terminal node:  0.05021075465460407
+[1, 0.8125486774415731]
+	 terminal node:  0.05188583804970138
+	 [2, 0.33236530087901717]
+		 [4, 0.5128665191583686]
+			 terminal node:  0.7623787750856714
+			 terminal node:  0.04541482950659097
+		 terminal node:  0.051131886885080774
 ```
 
 The function also returns a nested list representing the tree:
