@@ -80,7 +80,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                         SS_best_right = SS_right
                         iFeature_best = iFeature
                         val_best = val
-            best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
+            best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y_boot]
             best_split_feature_vec.append(iFeature_best)
         # print(iDepth, best_split)
         # Pick most-voted iFeature and calculate other params on full dataset
@@ -100,6 +100,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                 SS_best_right = SS_right
                 iFeature_best = iFeature
                 val_best = val
+        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
         ind_left = (X[:, iFeature_best] < val_best)
         ind_right = (X[:, iFeature_best] >= val_best)
         branch_left = teg_tree_scale(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
@@ -264,6 +265,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                         iFeature_best = iFeature1
                         val_best = val1
                         # print('New best: ', iFeature1, iFeature2, SS_best)
+        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y_boot), node_index_v[0], iDepth, y]
         ind_left = (X[:, iFeature_best] < val_best)
         ind_right = (X[:, iFeature_best] >= val_best)
         branch_left = teg_tree_scale(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
@@ -425,7 +427,11 @@ y = 0.1 * np.random.random_sample(size=(nObs))
 LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
 # Traditional greedy tree
-tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0)
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 0)
+print(tree0)
+print(cost_complexity_criterion)
+# Greedy tree with internal ensemble
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 0)
 print(tree0)
 print(cost_complexity_criterion)
 # Two-step peek-ahead tree, no internal ensemble
