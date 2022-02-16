@@ -134,7 +134,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                     if (iFeature1 == iFeature2):
                         continue
                     splitting_var2 = X[:, iFeature2]
-                    splitting_vals2 = np.quantile(splitting_var2, [.2, .35, .5, .65, .8])
+                    splitting_vals2 = np.quantile(splitting_var2, [.25, .5, .75])
                     for val2 in splitting_vals2:
                         #print(iFeature1, ' ', iFeature2, ' ', val1, ' ', val2, '\n')
                         ind_left_left = ((splitting_var1 < val1) & (splitting_var2 < val2))
