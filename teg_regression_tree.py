@@ -128,7 +128,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
         for iFeature1 in range(X.shape[1]):
             #print(iFeature1)
             splitting_var1 = X[:, iFeature1]
-            splitting_vals1 = np.unique(splitting_var1) # np.quantile(splitting_var1, [.2, .35, .5, .65, .8])
+            splitting_vals1 = np.unique(splitting_var1) # np.quantile(splitting_var1, [.25, .5, .75])
             for val1 in splitting_vals1:
                 for iFeature2 in range(X.shape[1]):
                     if (iFeature1 == iFeature2):
@@ -194,7 +194,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
             for iFeature1 in range(X.shape[1]):
                 #print(iFeature1)
                 splitting_var1 = X[:, iFeature1]
-                splitting_vals1 = np.unique(splitting_var1) # np.quantile(splitting_var1, [.2, .35, .5, .65, .8])
+                splitting_vals1 = np.unique(splitting_var1) # np.quantile(splitting_var1, [.25, .5, .75])
                 for val1 in splitting_vals1:
                     for iFeature2 in range(X.shape[1]):
                         if (iFeature1 == iFeature2):
@@ -384,6 +384,9 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                 print_tree_inner(this_tree[2], nodes_collapsed_choice, mean_y, sd_y)
             else:
                 print(indent0, 'terminal node: ', mean_y + sd_y * np.nanmean(this_tree[0][-1]))
+        if len(C) == 0:
+            print('Empty tree.');
+            return
         best_collapse_seq_end = np.argmin(C)
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
         print_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y)
@@ -396,6 +399,8 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
             else:
                 to_report = mean_y + sd_y * np.nanmean(this_tree[0][-1])
                 return to_report
+        if len(C) == 0:
+            return []
         best_collapse_seq_end = np.argmin(C)
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
         return build_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y)
@@ -417,9 +422,13 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
     #print(tree0)
     #print(C)
     #print(nodes_collapsed)
+    # print(len(C))
     print_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
     collapsed_tree = collapse_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
-    return collapsed_tree, min(C)
+    if len(C) > 0:
+        return collapsed_tree, min(C)
+    else:
+        return collapsed_tree, np.NaN
 
 nObs = 2000
 nPred = 6
@@ -469,3 +478,38 @@ print(cost_complexity_criterion)
 tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
 print(tree0)
 print(cost_complexity_criterion)
+
+#
+# Empirical data
+#
+import pandas as pd
+fn = 'D:/Dropbox/Work/Projects/GladwinParadigms/Current/2022_01_30_tree0/Data/Data.txt'
+DF = pd.read_csv(fn, delimiter="\t")
+print(DF.columns)
+y = DF['AUDIT3'].to_numpy()
+yz = (y - np.nanmean(y)) / np.sqrt(np.var(y))
+pred_names = ['PhysicalAggr', 'VerbalAggr', 'Anger', 'Hostility', 'PHQ9', 'Total', 'STAI1', 'DMQ_Soc', 'DMQ_Coping', 'DMQ_Enh', 'DMQ_Conform', 'RALD_LossOfControl', 'RALD_AdverseConseq', 'RALD_Convictions', 'ACS_Compuls', 'ACS_Expect', 'ACS_Purpose', 'ACS_Emot']
+X = DF[pred_names].to_numpy()
+Xz = np.array([(Xcol - np.nanmean(Xcol)) / np.sqrt(np.var(Xcol)) for Xcol in X.T]).T
+maxDepth = 4 # Max. number of splits
+alpha0 = 0.5
+tree0, cost_complexity_criterion = teg_regression_tree(Xz, yz, maxDepth, alpha0)
+for index, value in enumerate(pred_names):
+    print(index, value, end='.\t')
+    if (index + 1) % 5 == 0:
+        print()
+#PCA for indep predictors
+Cov0 = np.cov(Xz.T)
+eigen_vals0, eigen_vecs0 = np.linalg.eig(Cov0)
+ind0 = np.flip(np.argsort(eigen_vals0))
+eigen_vals0 = eigen_vals0[ind0]
+eigen_vecs0 = eigen_vecs0[ind0]
+elbow0 = 5
+eigen_vecs = eigen_vecs0[:, 0:elbow0]
+# print(eigen_vecs.T[3])
+L = Xz @ eigen_vecs
+alpha0 = 1
+tree0, cost_complexity_criterion = teg_regression_tree(L, yz, maxDepth, alpha0, twostep = 1, internalEnsemble=1)
+# Statistics
+# Test overall fit vs null distrib
+# -> Or: Test absolute terminal value vs null distrib (FWE), only consider "paths" to those values as meaningful
