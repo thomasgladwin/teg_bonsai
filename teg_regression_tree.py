@@ -371,8 +371,8 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
             # Collapse all downstream internal nodes
         return C, nodes_collapsed
 
-    def print_tree(this_tree, C, nodes_collapsed):
-        def print_tree_inner(this_tree, nodes_collapsed_choice):
+    def print_tree(this_tree, C, nodes_collapsed, mean_y, sd_y):
+        def print_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y):
             #print(this_tree[0][0])
             iDepth = int(this_tree[0][7])
             indent0 = ''
@@ -380,26 +380,29 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                 indent0 = indent0 + '\t'
             if nodes_collapsed_choice.count(this_tree[0][6]) == 0 and not(np.isnan(this_tree[0][0])):
                 print(indent0, this_tree[0][0:2])
-                print_tree_inner(this_tree[1], nodes_collapsed_choice)
-                print_tree_inner(this_tree[2], nodes_collapsed_choice)
+                print_tree_inner(this_tree[1], nodes_collapsed_choice, mean_y, sd_y)
+                print_tree_inner(this_tree[2], nodes_collapsed_choice, mean_y, sd_y)
             else:
-                print(indent0, 'terminal node: ', np.nanmean(this_tree[0][-1]))
+                print(indent0, 'terminal node: ', mean_y + sd_y * np.nanmean(this_tree[0][-1]))
         best_collapse_seq_end = np.argmin(C)
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
-        print_tree_inner(this_tree, nodes_collapsed_choice)
+        print_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y)
 
-    def collapse_tree(this_tree, C, nodes_collapsed):
-        def build_tree_inner(this_tree, nodes_collapsed_choice):
+    def collapse_tree(this_tree, C, nodes_collapsed, mean_y, sd_y):
+        def build_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y):
             if (nodes_collapsed_choice.count(this_tree[0][6]) == 0 and not(np.isnan(this_tree[0][0]))):
                 to_report = this_tree[0][0:2]
-                return [to_report, build_tree_inner(this_tree[1], nodes_collapsed_choice), build_tree_inner(this_tree[2], nodes_collapsed_choice)]
+                return [to_report, build_tree_inner(this_tree[1], nodes_collapsed_choice, mean_y, sd_y), build_tree_inner(this_tree[2], nodes_collapsed_choice, mean_y, sd_y)]
             else:
-                to_report = np.nanmean(this_tree[0][-1])
+                to_report = mean_y + sd_y * np.nanmean(this_tree[0][-1])
                 return to_report
         best_collapse_seq_end = np.argmin(C)
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
-        return build_tree_inner(this_tree, nodes_collapsed_choice)
+        return build_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y)
 
+    mean_y = np.nanmean(y)
+    sd_y = np.sqrt(np.var(y))
+    y = (y - mean_y) / sd_y
     if (twostep == 0):
         if (internalEnsemble == 0):
             tree0 = teg_tree_scale(X, y, maxDepth, alpha0)
@@ -414,8 +417,8 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
     #print(tree0)
     #print(C)
     #print(nodes_collapsed)
-    print_tree(tree0, C, nodes_collapsed)
-    collapsed_tree = collapse_tree(tree0, C, nodes_collapsed)
+    print_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
+    collapsed_tree = collapse_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
     return collapsed_tree, min(C)
 
 nObs = 2000
