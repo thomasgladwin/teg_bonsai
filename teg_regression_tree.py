@@ -434,7 +434,7 @@ tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, t
 print(tree0)
 print(cost_complexity_criterion)
 # Greedy tree with internal ensemble
-tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 0)
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 1)
 print(tree0)
 print(cost_complexity_criterion)
 # Two-step peek-ahead tree, no internal ensemble
