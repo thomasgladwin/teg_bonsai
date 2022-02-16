@@ -44,6 +44,68 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
         branch_right = teg_tree_scale(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
         return [best_split, branch_left, branch_right]
 
+    def teg_tree_scale_internalEnsemble(X, y, maxDepth, iDepth=0, node_index_v = [0]):
+        if (iDepth == 0):
+            node_index_v[0] = 0
+        else:
+            node_index_v[0] = node_index_v[0] + 1
+        #print(node_index_v)
+        SS_pre_split = f_SS(y)
+        # Check whether maxdepth passed or y is empty
+        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split== 0):
+            terminal_node_pred = np.nanmean(y)
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
+        # Create branches
+        # Repeat for bootstrapped samples, pick top vote for this split
+        nSamples = 3
+        best_split_feature_vec = []
+        for iSample in range(nSamples):
+            y_boot = np.random.choice(y, size=len(y))
+            SS_best = np.inf
+            SS_best_left = np.inf
+            SS_best_right = np.inf
+            iFeature_best = np.NaN
+            val_best = np.NaN
+            for iFeature in range(X.shape[1]):
+                splitting_var = X[:, iFeature]
+                for val in splitting_var:
+                    ind_left = (splitting_var < val)
+                    ind_right = (splitting_var >= val)
+                    SS_left = f_SS(y_boot[ind_left])
+                    SS_right = f_SS(y_boot[ind_right])
+                    SS_this = SS_left + SS_right
+                    if (SS_this < SS_best):
+                        SS_best = SS_this
+                        SS_best_left = SS_left
+                        SS_best_right = SS_right
+                        iFeature_best = iFeature
+                        val_best = val
+            best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
+            best_split_feature_vec.append(iFeature_best)
+        # print(iDepth, best_split)
+        # Pick most-voted iFeature and calculate other params on full dataset
+        values, counts = np.unique(best_split_feature_vec, return_counts=True)
+        iFeature = values[np.argmax(counts)]
+        splitting_var = X[:, iFeature]
+        SS_best = np.inf
+        for val in splitting_var:
+            ind_left = (splitting_var < val)
+            ind_right = (splitting_var >= val)
+            SS_left = f_SS(y[ind_left])
+            SS_right = f_SS(y[ind_right])
+            SS_this = SS_left + SS_right
+            if (SS_this < SS_best):
+                SS_best = SS_this
+                SS_best_left = SS_left
+                SS_best_right = SS_right
+                iFeature_best = iFeature
+                val_best = val
+        ind_left = (X[:, iFeature_best] < val_best)
+        ind_right = (X[:, iFeature_best] >= val_best)
+        branch_left = teg_tree_scale(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
+        branch_right = teg_tree_scale(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
+        return [best_split, branch_left, branch_right]
+
     def teg_tree_scale_XOR_trap(X, y, maxDepth, iDepth=0, node_index_v = [0]):
         if (iDepth == 0):
             node_index_v[0] = 0
@@ -337,11 +399,15 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
         return build_tree_inner(this_tree, nodes_collapsed_choice)
 
     if (twostep == 0):
-        tree0 = teg_tree_scale(X, y, maxDepth, alpha0)
-    elif (internalEnsemble == 0):
-        tree0 = teg_tree_scale_XOR_trap(X, y, maxDepth, alpha0)
+        if (internalEnsemble == 0):
+            tree0 = teg_tree_scale(X, y, maxDepth, alpha0)
+        else:
+            tree0 = teg_tree_scale_internalEnsemble(X, y, maxDepth, alpha0)
     else:
-        tree0 = teg_tree_scale_XOR_trap_internalEnsemble(X, y, maxDepth, alpha0)
+        if (internalEnsemble == 0):
+            tree0 = teg_tree_scale_XOR_trap(X, y, maxDepth, alpha0)
+        else:
+            tree0 = teg_tree_scale_XOR_trap_internalEnsemble(X, y, maxDepth, alpha0)
     C, nodes_collapsed = prune_the_tree(tree0, alpha0)
     #print(tree0)
     #print(C)
