@@ -5,16 +5,10 @@ from scipy import stats
 #
 # Decision tree: Regression
 #
-def teg_regression_tree_externalEnsemble(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 1):
-    nSamples = N_ensemble_bootstraps
-    best_split_feature_vec = []
-    for iSample in range(nSamples):
-        y_boot = np.random.choice(y, size=len(y))
-        teg_regression_tree(X, y_boot, maxDepth, alpha0, twostep=twostep, internalEnsemble=internalEnsemble)
 
 def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 1):
 
-    N_ensemble_bootstraps = 5
+    N_ensemble_bootstraps = 12
     peek_ahead_quantiles = [0.25, 0.5, 0.75]
 
     def teg_tree_scale_variants(X, y, maxDepth, iDepth=0, node_index_v = [0]):
@@ -27,7 +21,10 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
         SS_pre_split = f_SS(y)
         # Check whether maxdepth passed or y is empty
         if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split == 0):
-            terminal_node_pred = np.nanmean(y)
+            if len(y) > 0:
+                terminal_node_pred = np.nanmean(y)
+            else:
+                terminal_node_pred = np.NaN
             return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
         # Create branches
         # Repeat for bootstrapped samples, pick top vote for this split
@@ -62,16 +59,19 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
             best_SS_list.append(SS_best_left + SS_best_right)
             best_split_feature_vec.append(iFeature_best)
         # print(iDepth, best_split)
-        # Use best feature from the bootstraps and apply to full dataset
+        # Use best feature from the bootstraps for the split
         best_sample = np.argmin(best_SS_list)
         best_split = best_split_list[best_sample]
         iFeature1 = best_split[0]
         #print(iFeature1)
         splitting_var1 = X[:, iFeature1]
         #print(splitting_var1)
-        best_split, SS_best = f_get_best_split(iFeature1, np.inf, best_split, y, X)
-        #print(best_split)
-        val1 = best_split[1]
+        if (True):
+            val1 = best_split[1]
+        else:
+            best_split, SS_best = f_get_best_split(iFeature1, np.inf, best_split, y, X)
+            #print(best_split)
+            val1 = best_split[1]
         ind_left = (splitting_var1 < val1)
         ind_right = (splitting_var1 >= val1)
         SS_left = f_SS(y[ind_left])
@@ -133,7 +133,10 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
     def f_SS(v):
         if len(v) == 0:
             return 0
-        return np.sum((v - np.mean(v))**2)
+        # print('141')
+        ret_val = np.sum((v - np.mean(v))**2)
+        # print('141')
+        return ret_val
 
     # Cost-Complexity Pruning
     def retrieve_info_from_terminal_nodes(this_tree, nodes_to_collapse_tmp = [-1]):
@@ -141,19 +144,21 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
         if np.isnan(this_tree[0][0]) or (nodes_to_collapse_tmp.count(this_tree[0][6]) > 0):
             # print(this_tree)
             # Elements divides by and then multiplies by Nm
-            return this_tree[0][2], 1
+            return this_tree[0][2], 1, this_tree[0][7]
         else:
-            SS_left, N_left = retrieve_info_from_terminal_nodes(this_tree[1], nodes_to_collapse_tmp)
-            SS_right, N_right = retrieve_info_from_terminal_nodes(this_tree[2], nodes_to_collapse_tmp)
+            SS_left, N_left, depth_left = retrieve_info_from_terminal_nodes(this_tree[1], nodes_to_collapse_tmp)
+            SS_right, N_right, depth_right = retrieve_info_from_terminal_nodes(this_tree[2], nodes_to_collapse_tmp)
             # print(N_left, N_right)
-            return (SS_left + SS_right), (N_left + N_right)
+            return (SS_left + SS_right), (N_left + N_right), max(depth_left, depth_right)
 
     def f_C(this_tree, alpha0, nodes_to_collapse_tmp = [-1]):
         #print('zz', nodes_to_collapse_tmp)
         if nodes_to_collapse_tmp[0] == -1:
             node_indices = []
-        this_SS, this_N = retrieve_info_from_terminal_nodes(this_tree, nodes_to_collapse_tmp)
+        this_SS, this_N, max_depth_terminals = retrieve_info_from_terminal_nodes(this_tree, nodes_to_collapse_tmp)
+        # print("fC: ", this_N, max_depth_terminals)
         return this_SS + alpha0 * this_N
+        # return this_SS + alpha0 * this_N * max_depth_terminals
 
     def get_all_node_indices(this_tree, node_indices = [-1]):
         if node_indices[0] == -1:
@@ -241,7 +246,8 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                 print_tree_inner(this_tree[1], nodes_collapsed_choice, mean_y, sd_y)
                 print_tree_inner(this_tree[2], nodes_collapsed_choice, mean_y, sd_y)
             else:
-                print(indent0, 'terminal node: ', mean_y + sd_y * np.nanmean(this_tree[0][-1]))
+                m = np.nanmean(this_tree[0][-1])
+                print(indent0, 'terminal node: ', mean_y + sd_y * m)
         if len(C) == 0:
             print('Empty tree.');
             return
@@ -282,16 +288,19 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
 
 def tree_prediction(X, tree0):
     def tree_prediction_inner(xvec, current_tree):
-        this_split_var = current_tree[0][0]
-        this_split_val = current_tree[0][1]
-        if (xvec[this_split_var] < this_split_val):
-            branch = current_tree[1]
+        if not isinstance(current_tree, list):
+            prediction = current_tree
         else:
-            branch = current_tree[2]
-        if isinstance(branch, list):
-            prediction = tree_prediction_inner(xvec, branch)
-        else:
-            prediction = branch
+            this_split_var = current_tree[0][0]
+            this_split_val = current_tree[0][1]
+            if (xvec[this_split_var] < this_split_val):
+                branch = current_tree[1]
+            else:
+                branch = current_tree[2]
+            if isinstance(branch, list):
+                prediction = tree_prediction_inner(xvec, branch)
+            else:
+                prediction = branch
         return prediction
     y_pred = []
     for xrow in X:
