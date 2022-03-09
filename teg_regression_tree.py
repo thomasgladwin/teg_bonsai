@@ -1,50 +1,24 @@
 import numpy as np
+import scipy
+from scipy import stats
 
 #
 # Decision tree: Regression
 #
+def teg_regression_tree_externalEnsemble(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 1):
+    nSamples = N_ensemble_bootstraps
+    best_split_feature_vec = []
+    for iSample in range(nSamples):
+        y_boot = np.random.choice(y, size=len(y))
+        teg_regression_tree(X, y_boot, maxDepth, alpha0, twostep=twostep, internalEnsemble=internalEnsemble)
+
 def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 1):
 
-    def teg_tree_scale(X, y, maxDepth, iDepth=0, node_index_v = [0]):
-        if (iDepth == 0):
-            node_index_v[0] = 0
-        else:
-            node_index_v[0] = node_index_v[0] + 1
-        #print(node_index_v)
-        SS_pre_split = f_SS(y)
-        # Check whether maxdepth passed or y is empty
-        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split== 0):
-            terminal_node_pred = np.nanmean(y)
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
-        # Create branches
-        SS_best = np.inf
-        SS_best_left = np.inf
-        SS_best_right = np.inf
-        iFeature_best = np.NaN
-        val_best = np.NaN
-        for iFeature in range(X.shape[1]):
-            splitting_var = X[:, iFeature]
-            for val in splitting_var:
-                ind_left = (splitting_var < val)
-                ind_right = (splitting_var >= val)
-                SS_left = f_SS(y[ind_left])
-                SS_right = f_SS(y[ind_right])
-                SS_this = SS_left + SS_right
-                if (SS_this < SS_best):
-                    SS_best = SS_this
-                    SS_best_left = SS_left
-                    SS_best_right = SS_right
-                    iFeature_best = iFeature
-                    val_best = val
-        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
-        # print(iDepth, best_split)
-        ind_left = (X[:, iFeature_best] < val_best)
-        ind_right = (X[:, iFeature_best] >= val_best)
-        branch_left = teg_tree_scale(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
-        branch_right = teg_tree_scale(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
-        return [best_split, branch_left, branch_right]
+    N_ensemble_bootstraps = 5
+    peek_ahead_quantiles = [0.25, 0.5, 0.75]
 
-    def teg_tree_scale_internalEnsemble(X, y, maxDepth, iDepth=0, node_index_v = [0]):
+    def teg_tree_scale_variants(X, y, maxDepth, iDepth=0, node_index_v = [0]):
+        # print("Params: ", twostep, internalEnsemble)
         if (iDepth == 0):
             node_index_v[0] = 0
         else:
@@ -52,204 +26,93 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
         #print(node_index_v)
         SS_pre_split = f_SS(y)
         # Check whether maxdepth passed or y is empty
-        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split== 0):
+        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split == 0):
             terminal_node_pred = np.nanmean(y)
             return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
         # Create branches
         # Repeat for bootstrapped samples, pick top vote for this split
-        nSamples = 3
-        best_split_feature_vec = []
-        for iSample in range(nSamples):
-            y_boot = np.random.choice(y, size=len(y))
-            SS_best = np.inf
-            SS_best_left = np.inf
-            SS_best_right = np.inf
-            iFeature_best = np.NaN
-            val_best = np.NaN
-            for iFeature in range(X.shape[1]):
-                splitting_var = X[:, iFeature]
-                for val in splitting_var:
-                    ind_left = (splitting_var < val)
-                    ind_right = (splitting_var >= val)
-                    SS_left = f_SS(y_boot[ind_left])
-                    SS_right = f_SS(y_boot[ind_right])
-                    SS_this = SS_left + SS_right
-                    if (SS_this < SS_best):
-                        SS_best = SS_this
-                        SS_best_left = SS_left
-                        SS_best_right = SS_right
-                        iFeature_best = iFeature
-                        val_best = val
-            best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y_boot]
-            best_split_feature_vec.append(iFeature_best)
-        # print(iDepth, best_split)
-        # Pick most-voted iFeature and calculate other params on full dataset
-        values, counts = np.unique(best_split_feature_vec, return_counts=True)
-        iFeature = values[np.argmax(counts)]
-        splitting_var = X[:, iFeature]
-        SS_best = np.inf
-        for val in splitting_var:
-            ind_left = (splitting_var < val)
-            ind_right = (splitting_var >= val)
-            SS_left = f_SS(y[ind_left])
-            SS_right = f_SS(y[ind_right])
-            SS_this = SS_left + SS_right
-            if (SS_this < SS_best):
-                SS_best = SS_this
-                SS_best_left = SS_left
-                SS_best_right = SS_right
-                iFeature_best = iFeature
-                val_best = val
-        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
-        ind_left = (X[:, iFeature_best] < val_best)
-        ind_right = (X[:, iFeature_best] >= val_best)
-        branch_left = teg_tree_scale(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
-        branch_right = teg_tree_scale(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
-        return [best_split, branch_left, branch_right]
-
-    def teg_tree_scale_XOR_trap(X, y, maxDepth, iDepth=0, node_index_v = [0]):
-        if (iDepth == 0):
-            node_index_v[0] = 0
+        if (internalEnsemble == 0):
+            nSamples = 1
         else:
-            node_index_v[0] = node_index_v[0] + 1
-        #print(node_index_v)
-        SS_pre_split = f_SS(y)
-        # Check whether maxdepth passed or y is empty
-        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split== 0):
-            terminal_node_pred = np.nanmean(y)
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
-        # Create branches
-        SS_best = np.inf
-        SS_best_left = np.inf
-        SS_best_right = np.inf
-        iFeature_best = np.NaN
-        val_best = np.NaN
-        # Check one step ahead
-        for iFeature1 in range(X.shape[1]):
-            #print(iFeature1)
-            splitting_var1 = X[:, iFeature1]
-            splitting_vals1 = np.unique(splitting_var1) # np.quantile(splitting_var1, [.25, .5, .75])
-            for val1 in splitting_vals1:
-                for iFeature2 in range(X.shape[1]):
-                    if (iFeature1 == iFeature2):
-                        continue
-                    splitting_var2 = X[:, iFeature2]
-                    splitting_vals2 = np.quantile(splitting_var2, [.25, .5, .75])
-                    for val2 in splitting_vals2:
-                        #print(iFeature1, ' ', iFeature2, ' ', val1, ' ', val2, '\n')
-                        ind_left_left = ((splitting_var1 < val1) & (splitting_var2 < val2))
-                        ind_left_right = ((splitting_var1 < val1) & (splitting_var2 >= val2))
-                        ind_right_left = ((splitting_var1 >= val1) & (splitting_var2 < val2))
-                        ind_right_right = ((splitting_var1 >= val1) & (splitting_var2 >= val2))
-                        SS_left_left = f_SS(y[ind_left_left])
-                        SS_left_right = f_SS(y[ind_left_right])
-                        SS_right_left = f_SS(y[ind_right_left])
-                        SS_right_right = f_SS(y[ind_right_right])
-                        SS_this = SS_left_left + SS_left_right + SS_right_left + SS_right_right
-                        if (SS_this < SS_best):
-                            # Use double-split for best
-                            SS_best = SS_this
-                            # Use first split
-                            ind_left = (splitting_var1 < val1)
-                            ind_right = (splitting_var1 >= val1)
-                            SS_left = f_SS(y[ind_left])
-                            SS_right = f_SS(y[ind_right])
-                            SS_this = SS_left + SS_right
-                            SS_best_left = SS_left
-                            SS_best_right = SS_right
-                            iFeature_best = iFeature1
-                            val_best = val1
-                            #print('New best: ', iFeature1, iFeature2, SS_best)
-        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
-        # print(iDepth, best_split)
-        ind_left = (X[:, iFeature_best] < val_best)
-        ind_right = (X[:, iFeature_best] >= val_best)
-        branch_left = teg_tree_scale(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
-        branch_right = teg_tree_scale(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
-        return [best_split, branch_left, branch_right]
-
-    def teg_tree_scale_XOR_trap_internalEnsemble(X, y, maxDepth, iDepth=0, node_index_v = [0]):
-        if (iDepth == 0):
-            node_index_v[0] = 0
-        else:
-            node_index_v[0] = node_index_v[0] + 1
-        #print(node_index_v)
-        SS_pre_split = f_SS(y)
-        # Check whether maxdepth passed or y is empty
-        if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split== 0):
-            terminal_node_pred = np.nanmean(y)
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
-        # Create branches
-        # Repeat for bootstrapped samples, pick top vote for this split
-        nSamples = 3
+            nSamples = N_ensemble_bootstraps
         best_split_feature_vec = []
+        best_split_list = []
+        best_SS_list = []
         for iSample in range(nSamples):
-            y_boot = np.random.choice(y, size=len(y))
+            # print("iSample: ", iSample)
+            if (internalEnsemble == 0):
+                y_boot = y
+                X_boot = X
+            else:
+                indices_boot = np.random.choice(len(y), size=len(y))
+                y_boot = y[indices_boot]
+                X_boot = X[indices_boot, :]
+            best_split = [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN]
             SS_best = np.inf
             SS_best_left = np.inf
             SS_best_right = np.inf
             iFeature_best = np.NaN
             val_best = np.NaN
             # Check one step ahead
-            for iFeature1 in range(X.shape[1]):
-                #print(iFeature1)
-                splitting_var1 = X[:, iFeature1]
-                splitting_vals1 = np.unique(splitting_var1) # np.quantile(splitting_var1, [.25, .5, .75])
-                for val1 in splitting_vals1:
-                    for iFeature2 in range(X.shape[1]):
-                        if (iFeature1 == iFeature2):
-                            continue
-                        splitting_var2 = X[:, iFeature2]
-                        splitting_vals2 = np.quantile(splitting_var2, [.25, .5, .75])
-                        for val2 in splitting_vals2:
-                            #print(iFeature1, ' ', iFeature2, ' ', val1, ' ', val2, '\n')
-                            ind_left_left = ((splitting_var1 < val1) & (splitting_var2 < val2))
-                            ind_left_right = ((splitting_var1 < val1) & (splitting_var2 >= val2))
-                            ind_right_left = ((splitting_var1 >= val1) & (splitting_var2 < val2))
-                            ind_right_right = ((splitting_var1 >= val1) & (splitting_var2 >= val2))
-                            SS_left_left = f_SS(y_boot[ind_left_left])
-                            SS_left_right = f_SS(y_boot[ind_left_right])
-                            SS_right_left = f_SS(y_boot[ind_right_left])
-                            SS_right_right = f_SS(y_boot[ind_right_right])
-                            SS_this = SS_left_left + SS_left_right + SS_right_left + SS_right_right
-                            if (SS_this < SS_best):
-                                # Use double-split for best
-                                SS_best = SS_this
-                                # Use first split
-                                ind_left = (splitting_var1 < val1)
-                                ind_right = (splitting_var1 >= val1)
-                                SS_left = f_SS(y[ind_left])
-                                SS_right = f_SS(y[ind_right])
-                                SS_this = SS_left + SS_right
-                                SS_best_left = SS_left
-                                SS_best_right = SS_right
-                                iFeature_best = iFeature1
-                                val_best = val1
-                                #print('New best: ', iFeature1, iFeature2, SS_best)
-            best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y_boot), node_index_v[0], iDepth, y_boot]
+            for iFeature1 in range(X_boot.shape[1]):
+                # print("iFeature1: ", iFeature1)
+                # print(iSample, iFeature1)
+                best_split, SS_best = f_get_best_split(iFeature1, SS_best, best_split, y_boot, X_boot)
+            best_split_list.append(best_split)
+            best_SS_list.append(SS_best_left + SS_best_right)
             best_split_feature_vec.append(iFeature_best)
         # print(iDepth, best_split)
-        # Pick most-voted iFeature and calculate other params on full dataset
-        values, counts = np.unique(best_split_feature_vec, return_counts=True)
-        iFeature1 = values[np.argmax(counts)]
+        # Use best feature from the bootstraps and apply to full dataset
+        best_sample = np.argmin(best_SS_list)
+        best_split = best_split_list[best_sample]
+        iFeature1 = best_split[0]
+        #print(iFeature1)
         splitting_var1 = X[:, iFeature1]
-        splitting_vals1 = np.unique(splitting_var1)  # np.quantile(splitting_var1, [.2, .35, .5, .65, .8])
+        #print(splitting_var1)
+        best_split, SS_best = f_get_best_split(iFeature1, np.inf, best_split, y, X)
+        #print(best_split)
+        val1 = best_split[1]
+        ind_left = (splitting_var1 < val1)
+        ind_right = (splitting_var1 >= val1)
+        SS_left = f_SS(y[ind_left])
+        SS_right = f_SS(y[ind_right])
+        SS_best_left = SS_left
+        SS_best_right = SS_right
+        iFeature_best = iFeature1
+        val_best = val1
+        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y), node_index_v[0], iDepth, y]
+        branch_left = teg_tree_scale_variants(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
+        branch_right = teg_tree_scale_variants(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
+        return [best_split, branch_left, branch_right]
+
+    def f_get_best_split(iFeature1, SS_best, best_split, y_boot, X_boot):
+        splitting_var1 = X_boot[:, iFeature1]
+        splitting_vals1 = np.unique(splitting_var1)  # np.quantile(splitting_var1, peek_ahead_quantiles)
         for val1 in splitting_vals1:
-            for iFeature2 in range(X.shape[1]):
+            # print("val1: ", val1)
+            if (twostep == 0):
+                feature2vec = [0]
+            else:
+                feature2vec = range(X.shape[1])
+            for iFeature2 in feature2vec:
                 if (iFeature1 == iFeature2):
                     continue
-                splitting_var2 = X[:, iFeature2]
-                splitting_vals2 = np.quantile(splitting_var2, [.25, .5, .75])
+                splitting_var2 = X_boot[:, iFeature2]
+                if (twostep == 0):
+                    splitting_vals2 = [-np.inf]
+                else:
+                    splitting_vals2 = np.quantile(splitting_var2, peek_ahead_quantiles)
                 for val2 in splitting_vals2:
+                    # print("val2: ", val2)
                     # print(iFeature1, ' ', iFeature2, ' ', val1, ' ', val2, '\n')
                     ind_left_left = ((splitting_var1 < val1) & (splitting_var2 < val2))
                     ind_left_right = ((splitting_var1 < val1) & (splitting_var2 >= val2))
                     ind_right_left = ((splitting_var1 >= val1) & (splitting_var2 < val2))
                     ind_right_right = ((splitting_var1 >= val1) & (splitting_var2 >= val2))
-                    SS_left_left = f_SS(y[ind_left_left])
-                    SS_left_right = f_SS(y[ind_left_right])
-                    SS_right_left = f_SS(y[ind_right_left])
-                    SS_right_right = f_SS(y[ind_right_right])
+                    SS_left_left = f_SS(y_boot[ind_left_left])
+                    SS_left_right = f_SS(y_boot[ind_left_right])
+                    SS_right_left = f_SS(y_boot[ind_right_left])
+                    SS_right_right = f_SS(y_boot[ind_right_right])
                     SS_this = SS_left_left + SS_left_right + SS_right_left + SS_right_right
                     if (SS_this < SS_best):
                         # Use double-split for best
@@ -257,20 +120,15 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
                         # Use first split
                         ind_left = (splitting_var1 < val1)
                         ind_right = (splitting_var1 >= val1)
-                        SS_left = f_SS(y[ind_left])
-                        SS_right = f_SS(y[ind_right])
-                        SS_this = SS_left + SS_right
+                        SS_left = f_SS(y_boot[ind_left])
+                        SS_right = f_SS(y_boot[ind_right])
                         SS_best_left = SS_left
                         SS_best_right = SS_right
                         iFeature_best = iFeature1
                         val_best = val1
-                        # print('New best: ', iFeature1, iFeature2, SS_best)
-        best_split = [iFeature_best, val_best, SS_pre_split, SS_best_left, SS_best_right, len(y_boot), node_index_v[0], iDepth, y]
-        ind_left = (X[:, iFeature_best] < val_best)
-        ind_right = (X[:, iFeature_best] >= val_best)
-        branch_left = teg_tree_scale(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
-        branch_right = teg_tree_scale(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
-        return [best_split, branch_left, branch_right]
+                        # print('New best: ', iFeature1, val1, iFeature2, val2, SS_best)
+                        best_split = [iFeature_best, val_best]
+        return best_split, SS_best
 
     def f_SS(v):
         if len(v) == 0:
@@ -408,16 +266,8 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
     mean_y = np.nanmean(y)
     sd_y = np.sqrt(np.var(y))
     y = (y - mean_y) / sd_y
-    if (twostep == 0):
-        if (internalEnsemble == 0):
-            tree0 = teg_tree_scale(X, y, maxDepth, alpha0)
-        else:
-            tree0 = teg_tree_scale_internalEnsemble(X, y, maxDepth, alpha0)
-    else:
-        if (internalEnsemble == 0):
-            tree0 = teg_tree_scale_XOR_trap(X, y, maxDepth, alpha0)
-        else:
-            tree0 = teg_tree_scale_XOR_trap_internalEnsemble(X, y, maxDepth, alpha0)
+    tree0 = teg_tree_scale_variants(X, y, maxDepth)
+
     C, nodes_collapsed = prune_the_tree(tree0, alpha0)
     #print(tree0)
     #print(C)
@@ -430,16 +280,36 @@ def teg_regression_tree(X, y, maxDepth, alpha0, twostep = 1, internalEnsemble = 
     else:
         return collapsed_tree, np.NaN
 
+def tree_prediction(X, tree0):
+    def tree_prediction_inner(xvec, current_tree):
+        this_split_var = current_tree[0][0]
+        this_split_val = current_tree[0][1]
+        if (xvec[this_split_var] < this_split_val):
+            branch = current_tree[1]
+        else:
+            branch = current_tree[2]
+        if isinstance(branch, list):
+            prediction = tree_prediction_inner(xvec, branch)
+        else:
+            prediction = branch
+        return prediction
+    y_pred = []
+    for xrow in X:
+        y_pred.append(tree_prediction_inner(xrow, tree0))
+    return y_pred
+
 nObs = 2000
 nPred = 6
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 X = np.random.random_sample(size=(nObs, nPred))
-y = 0.1 * np.random.random_sample(size=(nObs))
+y = 0 * np.random.random_sample(size=(nObs))
 LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
-y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
+# y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
+y[LogicalInd] = 1
+y = y + 0.1 * np.random.random_sample(size=(nObs))
 # Traditional greedy tree
-tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 0)
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep = 0, internalEnsemble = 0)
 print(tree0)
 print(cost_complexity_criterion)
 # Greedy tree with internal ensemble
@@ -455,7 +325,7 @@ tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
 print(tree0)
 print(cost_complexity_criterion)
 
-# XOR problem
+# XOR problem: basic
 nObs = 2000
 nPred = 6
 maxDepth = 4 # Max. number of splits
@@ -479,6 +349,55 @@ tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
 print(tree0)
 print(cost_complexity_criterion)
 
+# XOR problem: tests
+# Define "truth" by the true-model prediction of y, instead of trying to follow and compare paths.
+tree_true = [[3, 0.5], [[0, 0.5], 0, 1], [[0, 0.5], 1, 0]]
+nObs = 2000
+nPred = 6
+maxDepth = 4  # Max. number of splits
+alpha0 = 0.5
+nIts = 30
+error_greedy_v = []
+error_peek_v = []
+error_peek_ensemble_v = []
+noise0 = 0.1
+noise_prop_randperm = 0
+noise_prop_malice = 0.25
+N_noise_prop_randperm = int(np.ceil(noise_prop_randperm * nObs))
+N_noise_prop_malice = int(np.ceil(noise_prop_malice * nObs))
+for iIt in range(nIts):
+    print(iIt)
+    X = np.random.random_sample(size=(nObs, nPred))
+    y_true = tree_prediction(X, tree_true)
+    # Add noise to true y
+    y = np.array(y_true)
+    y[-N_noise_prop_malice:] = 1 - y[-N_noise_prop_malice:]
+    y[0:N_noise_prop_randperm] = np.random.permutation(y[0:N_noise_prop_randperm])
+    y = y + noise0 * np.random.randn(nObs)
+    # Run tree variants
+    tree_greedy, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 0)
+    y_greedy = tree_prediction(X, tree_greedy)
+    error_greedy = np.mean((np.array(y_true) - np.array(y_greedy))**2)
+    error_greedy_v.append(error_greedy)
+    tree_peek, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=1, internalEnsemble = 0)
+    y_peek = tree_prediction(X, tree_peek)
+    error_peek = np.mean((np.array(y_true) - np.array(y_peek))**2)
+    error_peek_v.append(error_peek)
+    tree_peek, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=1, internalEnsemble = 1)
+    y_peek_ensemble = tree_prediction(X, tree_peek)
+    error_peek_ensemble = np.mean((np.array(y_true) - np.array(y_peek_ensemble))**2)
+    error_peek_ensemble_v.append(error_peek_ensemble)
+# Compare
+# Greedy versus peek
+d = np.array(error_greedy_v) - np.array(error_peek_v)
+print(scipy.stats.ttest_1samp(d, 0))
+# Greedy versus ensemble
+d = np.array(error_greedy_v) - np.array(error_peek_ensemble_v)
+print(scipy.stats.ttest_1samp(d, 0))
+# Peek versus ensemble
+d = np.array(error_peek_v) - np.array(error_peek_ensemble_v)
+print(scipy.stats.ttest_1samp(d, 0))
+
 #
 # Empirical data
 #
@@ -490,7 +409,8 @@ y = DF['AUDIT3'].to_numpy()
 yz = (y - np.nanmean(y)) / np.sqrt(np.var(y))
 pred_names = ['PhysicalAggr', 'VerbalAggr', 'Anger', 'Hostility', 'PHQ9', 'Total', 'STAI1', 'DMQ_Soc', 'DMQ_Coping', 'DMQ_Enh', 'DMQ_Conform', 'RALD_LossOfControl', 'RALD_AdverseConseq', 'RALD_Convictions', 'ACS_Compuls', 'ACS_Expect', 'ACS_Purpose', 'ACS_Emot']
 X = DF[pred_names].to_numpy()
-Xz = np.array([(Xcol - np.nanmean(Xcol)) / np.sqrt(np.var(Xcol)) for Xcol in X.T]).T
+Xz = np.array([(Xcol - np.nanmean(Xcol, axis=0)) / np.sqrt(np.var(Xcol, axis=0)) for Xcol in X.T]).T
+#
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 tree0, cost_complexity_criterion = teg_regression_tree(Xz, yz, maxDepth, alpha0)
@@ -498,6 +418,9 @@ for index, value in enumerate(pred_names):
     print(index, value, end='.\t')
     if (index + 1) % 5 == 0:
         print()
+#
+Xtest = np.random.normal(size=(1000, 5))
+np.corrcoef(Xtest.T)
 #PCA for indep predictors
 Cov0 = np.cov(Xz.T)
 eigen_vals0, eigen_vecs0 = np.linalg.eig(Cov0)
@@ -506,10 +429,77 @@ eigen_vals0 = eigen_vals0[ind0]
 eigen_vecs0 = eigen_vecs0[ind0]
 elbow0 = 5
 eigen_vecs = eigen_vecs0[:, 0:elbow0]
-# print(eigen_vecs.T[3])
 L = Xz @ eigen_vecs
-alpha0 = 1
+np.corrcoef(L.T)
+# print(eigen_vecs.T[3])
+a = [10, 11, 12, 4, 5, 1, 9, 4, 3, 22, 10, 9, 1, 2, 1, 0, 8, 2];
+A = np.reshape(a, (3, 6)).T
+A = A - np.mean(A, axis=0)
+Cov0 = np.cov(A.T)
+eigen_vals0, eigen_vecs0 = np.linalg.eig(Cov0)
+L = A @ eigen_vecs0
+np.corrcoef(L.T)
+# FA
+from sklearn.decomposition import FactorAnalysis, PCA
+fa = FactorAnalysis(rotation='varimax')
+elbow0 = 5
+fa.set_params(n_components=elbow0)
+fa.fit(Xz)
+components = fa.components_
+L = fa.fit_transform(Xz)
+#
+print(np.corrcoef(L.T))
+
+alpha0 = 0.5
 tree0, cost_complexity_criterion = teg_regression_tree(L, yz, maxDepth, alpha0, twostep = 1, internalEnsemble=1)
+# 1 = Social drinker, emotionality-craving
+# 3 = Enhancement, expectancy-craving
 # Statistics
 # Test overall fit vs null distrib
 # -> Or: Test absolute terminal value vs null distrib (FWE), only consider "paths" to those values as meaningful
+def get_max_abs_mean_preds(this_tree, current_max =-np.inf):
+    if isinstance(this_tree, float):
+        if np.abs(this_tree) > current_max:
+            current_max = np.abs(this_tree)
+        return current_max
+    else:
+        L_max = get_max_abs_mean_preds(this_tree[1], current_max)
+        R_max = get_max_abs_mean_preds(this_tree[2], current_max)
+        if L_max > current_max:
+            current_max = L_max
+        if R_max > current_max:
+            current_max = R_max
+        return current_max
+nIts = 200
+null_dist = []
+null_dist_CCC = []
+twostep = 1
+internalEnsemble = 0
+alpha0 = 0.5
+maxDepth = 4 # Max. number of splits
+y = yz.copy()
+# X = Xz.copy()
+X = L.copy()
+for iIt in range(nIts):
+    print(iIt, end='\t')
+    y_perm = np.random.choice(y, size=len(y))
+    tree0_perm, cost_complexity_criterion_perm = teg_regression_tree(X, y_perm, maxDepth, alpha0, twostep = twostep, internalEnsemble = internalEnsemble) # Make sure this matches observed tree
+    max_term_perm = get_max_abs_mean_preds(tree0_perm)
+    null_dist.append(max_term_perm)
+    null_dist_CCC.append(cost_complexity_criterion_perm)
+print()
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep = twostep, internalEnsemble = internalEnsemble)
+max_term_obs = get_max_abs_mean_preds(tree0)
+p = sum(null_dist > max_term_obs)/len(null_dist)
+print('p (max abs mean pred) = ', p)
+p = sum(null_dist_CCC < cost_complexity_criterion)/len(null_dist_CCC) # Note low is good for CCC
+print('p (CCC) = ', p)
+for index, value in enumerate(components):
+    for index2, this_label in enumerate(pred_names):
+        print(index, index2, this_label, np.around(value[index2], 3))
+# Give proportional reduction in unexplained variance
+
+# NHST for max abs mean terminal val for fixed max depth
+
+# Fix tree for subsets of variables from PCA and get p-value; find more precise predictors within those subsets.
+
