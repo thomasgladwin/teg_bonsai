@@ -1,6 +1,6 @@
 # teg_regression_tree
 
-Practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with (1) an added "peek ahead" or "two-step" variation to deal with XOR patterns and (2) an internal ensemble addition that bootstraps and votes for the best split as the tree is constructed. "Peeking ahead" means: for each possible split, all possible immediately following splits (currently: for a limited set of quantiles for the second split to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split. The idea of the internal ensemble is that you might have more of a "scientific/understanding-focused" interest in the true structure of the tree than in using, e.g., random forests for prediction, and combining peeking ahead and an ensemble aspect might make it more likely to find something closer to that tree.
+Practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with an added "peek ahead" variation to deal with XOR patterns. "Peeking ahead" means: for each possible split, all possible immediately following splits (for a set of quantiles to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split; and this is repeated up to a given peek-ahead depth. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
 
 It's mostly made in base Python, just uses some basic numpy for convenience.
 
@@ -10,12 +10,12 @@ nObs = 2000
 nPred = 6
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
+max_peek_depth = 2
 X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
 LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-# Traditional greedy tree
-tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0)
+tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
@@ -43,6 +43,7 @@ An XOR example where the traditional tree fails but the current implementation c
 nObs = 2000
 nPred = 6
 maxDepth = 4 # Max. number of splits
+max_peek_depth = 2
 alpha0 = 0.5
 X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
@@ -50,17 +51,10 @@ LogicalInd = (X[:, 1] > 0.5) & (X[:, 2] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
 LogicalInd = (X[:, 1] < 0.5) & (X[:, 2] > 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-# Traditional greedy tree
-tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0)
-print(tree0)
-print(cost_complexity_criterion)
-# Two-step tree
-tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0)
-print(tree0)
-print(cost_complexity_criterion)
+tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 
-This would (after a minute or so, it's not fast...) print out the correct solution, splitting first on X1 and then on each branch on X2:
+This would tend to  (after some time, it's not fast...) print out the correct solution for a peek-ahead depth of 1, splitting first on X1 and then on each branch on X2:
 
 ```
  [1, 0.500026730694157]
