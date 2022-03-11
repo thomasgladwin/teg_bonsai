@@ -5,13 +5,13 @@ from scipy import stats
 #
 # Decision tree: Regression
 #
-def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, peek_ahead_quantiles = [0.25, 0.5, 0.75, 1], no_immediate_return_to_feature = 0, never_return_to_feature = 0):
+def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, split_val_quantiles = [], peek_ahead_quantiles = []):
     tree0 = []
     cost_complexity_criterion = np.inf
     best_peek_crit = np.NaN
     for peek_ahead_depth in range(peek_ahead_max_depth + 1):
         print('Finding tree for peek_ahead_depth = ', peek_ahead_depth)
-        tree0_this, cost_complexity_criterion_this = teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth=peek_ahead_depth, peek_ahead_quantiles=peek_ahead_quantiles, no_immediate_return_to_feature = no_immediate_return_to_feature, never_return_to_feature = never_return_to_feature)
+        tree0_this, cost_complexity_criterion_this = teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth=peek_ahead_depth, split_val_quantiles = split_val_quantiles, peek_ahead_quantiles=peek_ahead_quantiles)
         print('Cost-Complexity Criterion = ', cost_complexity_criterion_this)
         if cost_complexity_criterion_this < cost_complexity_criterion:
             tree0 = tree0_this
@@ -22,12 +22,9 @@ def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, peek
     print("Best tree was found at peek-ahead depth = ", best_peek_crit)
     return tree0, cost_complexity_criterion, best_peek_crit
 
-def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, peek_ahead_quantiles = [0.25, 0.5, 0.75, 1], no_immediate_return_to_feature = 1, never_return_to_feature = 0):
+def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_quantiles = [], peek_ahead_quantiles = []):
 
-    def init_best_split():
-        return np.NaN * np.zeros(9)
-
-    def teg_tree_scale_variants(X, y, maxDepth, visited_features = [], iDepth=0, node_index_v = [0]):
+    def teg_tree_scale_variants(X, y, maxDepth, iDepth=0, node_index_v = [0]):
         # print("Params: ", twostep, internalEnsemble)
         if (iDepth == 0):
             node_index_v[0] = 0
@@ -48,18 +45,13 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, peek_ahead
         best_split_val = np.NaN
         SS_best = np.inf
         for iFeature1 in range(X.shape[1]):
-            # print("iFeature1: ", iFeature1)
-            # print(iSample, iFeature1)
-            if (visited_features.count(iFeature1) > 0) and (never_return_to_feature == 1):
-                continue
-            if len(visited_features) > 0:
-                if (visited_features[-1] == iFeature1) and (no_immediate_return_to_feature == 1):
-                    continue
             best_split_val_this, SS_best_this = f_get_best_split_val(iFeature1, y, X, maxDepth - iDepth)
             if SS_best_this < SS_best:
+                #print("New best!")
                 best_split_feature = iFeature1
                 best_split_val = best_split_val_this
                 SS_best = SS_best_this
+            #print("> iFeature1: ", iFeature1, ", SS_best_this: ", SS_best_this)
         if np.isnan(best_split_feature):
             if len(y) > 0:
                 terminal_node_pred = np.nanmean(y)
@@ -71,53 +63,59 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, peek_ahead
         SS_left = f_SS(y[ind_left])
         SS_right = f_SS(y[ind_right])
         best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y), node_index_v[0], iDepth, y]
-        visited_features.append(best_split_feature)
-        branch_left = teg_tree_scale_variants(X[ind_left, :], y[ind_left], maxDepth, visited_features, iDepth + 1)
-        branch_right = teg_tree_scale_variants(X[ind_right, :], y[ind_right], maxDepth, visited_features, iDepth + 1)
+        branch_left = teg_tree_scale_variants(X[ind_left, :], y[ind_left], maxDepth, iDepth + 1)
+        branch_right = teg_tree_scale_variants(X[ind_right, :], y[ind_right], maxDepth, iDepth + 1)
         return [best_split, branch_left, branch_right]
 
-    def f_get_best_SS_peek(visited_features, y, X, peek_ahead_maxDepth_limiter, current_peek_depth = 0):
-        if len(y) <= 1:
-            return 0
-        if ((current_peek_depth >= peek_ahead_depth) or current_peek_depth > peek_ahead_maxDepth_limiter):
-            best_SS = f_SS(y)
-        else:
-            best_SS = np.inf
-            for iFeature_this in range(X.shape[1]):
-                if visited_features.count(iFeature_this) > 0:
-                    continue
+    def f_get_best_SS_peek(y, X, this_peek_ahead_depth, peek_ahead_maxDepth_limiter, current_peek_depth = 0):
+        # print(current_peek_depth, peek_ahead_depth, peek_ahead_maxDepth_limiter)
+        if (len(y) <= 1) or (current_peek_depth >= this_peek_ahead_depth) or (current_peek_depth >= peek_ahead_maxDepth_limiter):
+            return f_SS(y)
+        best_SS = np.inf
+        best_feature_peek = np.nan
+        best_val_peek = np.nan
+        for iFeature_this in range(X.shape[1]):
+            if len(peek_ahead_quantiles) == 0:
+                splitting_vals_this = np.unique(X[:, iFeature_this])
+            else:
                 splitting_vals_this = np.quantile(X[:, iFeature_this], peek_ahead_quantiles)
-                new_visited_features = visited_features.copy()
-                new_visited_features.append(iFeature_this)
-                for val_this in splitting_vals_this:
-                    ind_left = (X[:, iFeature_this] < val_this)
-                    ind_right = (X[:, iFeature_this] >= val_this)
-                    best_SS_left = f_get_best_SS_peek(new_visited_features, y[ind_left], X[ind_left, :], peek_ahead_maxDepth_limiter, current_peek_depth + 1)
-                    best_SS_right = f_get_best_SS_peek(new_visited_features, y[ind_right], X[ind_right, :], peek_ahead_maxDepth_limiter, current_peek_depth + 1)
-                    current_SS = best_SS_left + best_SS_right
-                    if (current_SS < best_SS):
-                        best_SS = current_SS
-            if np.isinf(best_SS):
-                best_SS = f_SS(y)
+            for val_this in splitting_vals_this:
+                ind_left = (X[:, iFeature_this] < val_this)
+                ind_right = (X[:, iFeature_this] >= val_this)
+                best_SS_left = f_get_best_SS_peek(y[ind_left], X[ind_left, :], this_peek_ahead_depth, peek_ahead_maxDepth_limiter, current_peek_depth + 1)
+                best_SS_right = f_get_best_SS_peek(y[ind_right], X[ind_right, :], this_peek_ahead_depth, peek_ahead_maxDepth_limiter, current_peek_depth + 1)
+                current_SS = best_SS_left + best_SS_right
+                if (current_SS < best_SS):
+                    best_SS = current_SS
+                    best_feature_peek = iFeature_this
+                    best_val_peek = val_this
+            #print(">>> best_feature_peek: ", best_feature_peek, ", best_val_peek: ", best_val_peek, ", best_SS: ", best_SS)
         return best_SS
 
     def f_get_best_split_val(iFeature1, y, X, peek_ahead_maxDepth_limiter):
         best_split_val = np.NaN
         SS_best = np.inf
-        splitting_vals1 = np.unique(X[:, iFeature1])
+        if len(split_val_quantiles) == 0:
+            splitting_vals1 = np.unique(X[:, iFeature1])
+        else:
+            splitting_vals1 = np.quantile(X[:, iFeature1], split_val_quantiles)
         for val1 in splitting_vals1:
             ind_left = (X[:, iFeature1] < val1)
             ind_right = (X[:, iFeature1] >= val1)
-            SS_left = f_get_best_SS_peek([iFeature1], y[ind_left], X[ind_left, :], peek_ahead_maxDepth_limiter)
-            SS_right = f_get_best_SS_peek([iFeature1], y[ind_right], X[ind_right, :], peek_ahead_maxDepth_limiter)
-            SS_this = SS_left + SS_right
-            if (SS_this < SS_best):
-                SS_best = SS_this
-                best_split_val = val1
+            for this_peek_ahead_depth in range(peek_ahead_depth + 1):
+                SS_left = f_get_best_SS_peek(y[ind_left], X[ind_left, :], this_peek_ahead_depth, peek_ahead_maxDepth_limiter)
+                SS_right = f_get_best_SS_peek(y[ind_right], X[ind_right, :], this_peek_ahead_depth, peek_ahead_maxDepth_limiter)
+                # print(iFeature1, val1, SS_left, SS_right)
+                SS_this = SS_left + SS_right
+                if (SS_this < SS_best):
+                    SS_best = SS_this
+                    best_split_val = val1
+            #print(">> val1: ", val1, ", SS_this: ", SS_this)
+        #print(iFeature1, best_split_val, SS_best)
         return best_split_val, SS_best
 
     def f_SS(v):
-        if len(v) == 0:
+        if len(v) <= 1:
             return 0
         # print('141')
         return_val = np.sum((v - np.mean(v))**2)
@@ -293,16 +291,18 @@ def tree_prediction(X, tree0):
         y_pred.append(tree_prediction_inner(xrow, tree0))
     return y_pred
 
-nObs = 400
+nObs = 1500
 nPred = 4
 maxDepth = 4
-alpha0 = 1
-max_peek_depth = 2
-X = np.random.random_sample(size=(nObs, nPred))
+alpha0 = 0.1
+max_peek_depth = 1
+peek_ahead_quantiles = []
+X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
-LogicalInd = (X[:, 0] > 0.8) & (X[:, 2] < 0.33)
+LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
 y[LogicalInd] = 1
-y = y + 0.1 * np.random.random_sample(size=(nObs))
+y = y + 0.0 * np.random.random_sample(size=(nObs))
+y = np.round(y, 2)
 tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 
 # XOR problem
@@ -310,32 +310,15 @@ nObs = 1000
 nPred = 4
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
-max_peek_depth = 2
-X = np.random.random_sample(size=(nObs, nPred))
+max_peek_depth = 1
+peek_ahead_quantiles = []
+X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
-LogicalInd = (X[:, 1] >= 0.5) & (X[:, 2] < 0.5)
+LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)
 y[LogicalInd] = 1
-LogicalInd = (X[:, 1] < 0.5) & (X[:, 2] >= 0.5)
+LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5)
 y[LogicalInd] = 1
-y = y + 0.01 * np.random.randn(nObs)
-tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
-
-# Higher-order XOR problem
-nObs = 4000
-nPred = 4
-maxDepth = 4 # Max. number of splits
-alpha0 = 0.5
-max_peek_depth = 2
-X = np.random.random_sample(size=(nObs, nPred))
-y = np.zeros(nObs)
-LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5) & (X[:, 2] < 0.5)
-y[LogicalInd] = 1
-LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] < 0.5) & (X[:, 2] >= 0.5)
-y[LogicalInd] = 1
-LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] >= 0.5) & (X[:, 2] >= 0.5)
-y[LogicalInd] = 1
-LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5) & (X[:, 2] < 0.5)
-y[LogicalInd] = 1
-y = y + 0.01 * np.random.randn(nObs)
-tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+y = y + 0.1 * np.random.randn(nObs)
+y = np.round(y, 2)
+tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, peek_ahead_quantiles=peek_ahead_quantiles)
 
