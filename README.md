@@ -21,7 +21,7 @@ X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
 LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+Output = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
@@ -35,7 +35,7 @@ The function prints out the tree as follows, with low and high branches starting
 		 terminal node:  0.051131886885080774
 ```
 
-The function also returns a nested list representing the tree:
+The function also returns a nested list representing the tree, as one of the elements in Output:
 
 `[[1, 0.8125486774415731], 0.05188583804970138, [[2, 0.33236530087901717], [[4, 0.5128665191583686], 0.7623787750856714, 0.04541482950659097], 0.051131886885080774]]`
 
@@ -57,7 +57,7 @@ LogicalInd = (X[:, 1] > 0.5) & (X[:, 2] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
 LogicalInd = (X[:, 1] < 0.5) & (X[:, 2] > 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+Output = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 
 This would tend to  (after some time, it's not fast...) print out the correct solution for a peek-ahead depth of 1, splitting first on X1 and then on each branch on X2:
