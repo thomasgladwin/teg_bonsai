@@ -6,16 +6,17 @@ import pickle
 #
 # Decision tree: Regression
 #
-def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, internal_cross_val=0, beta0_vec = 0):
+def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, internal_cross_val=0, beta0_vec = [0, 0]):
     tree0 = []
     cost_complexity_criterion = np.inf
     best_peek_crit = np.NaN
     best_raw_tree = []
     best_C_min_v_crossval = []
     best_C_min_v_null = []
+    p = 1
     for peek_ahead_depth in range(peek_ahead_max_depth + 1):
         print('Finding tree for peek_ahead_depth = ', peek_ahead_depth)
-        tree0_this, cost_complexity_criterion_this, raw_tree, C_min_v_crossval, C_min_v_null = teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth=peek_ahead_depth, split_val_quantiles = split_val_quantiles, peek_ahead_quantiles = peek_ahead_quantiles, nSamples = nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
+        tree0_this, cost_complexity_criterion_this, raw_tree, C_min_v_crossval, C_min_v_null, p = teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth=peek_ahead_depth, split_val_quantiles = split_val_quantiles, peek_ahead_quantiles = peek_ahead_quantiles, nSamples = nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
         print('Cost-Complexity Criterion = ', cost_complexity_criterion_this)
         if cost_complexity_criterion_this < cost_complexity_criterion:
             tree0 = tree0_this
@@ -27,7 +28,7 @@ def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, spli
             print(" ! New best tree !")
         print("\n")
     print("Best tree was found at peek-ahead depth = ", best_peek_crit)
-    return tree0, cost_complexity_criterion, best_peek_crit, best_raw_tree, best_C_min_v_crossval, best_C_min_v_null
+    return tree0, cost_complexity_criterion, best_peek_crit, best_raw_tree, best_C_min_v_crossval, best_C_min_v_null, p
 
 def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, internal_cross_val=0, beta0_vec = [0, 0]):
 
@@ -309,6 +310,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
         C, nodes_collapsed = prune_the_tree(tree0, alpha0)
         C_min_v_crossval = []
         C_min_v_null = []
+        p = 1
     else:
         best_mean_y = np.NaN
         best_sd_y = np.NaN
@@ -375,6 +377,8 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
         tree0 = best_tree
         C = best_C
         nodes_collapsed = best_nodes_collapsed
+        d_for_NHST = np.array(C_min_v_crossval) - np.array(C_min_v_null)
+        p = scipy.stats.ttest_1samp(d_for_NHST, 0)
 
     #print(tree0)
     #print(C)
@@ -383,9 +387,9 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
     print_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
     collapsed_tree = collapse_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
     if len(C) > 0:
-        return collapsed_tree, min(C), tree0, C_min_v_crossval, C_min_v_null
+        return collapsed_tree, min(C), tree0, C_min_v_crossval, C_min_v_null, p
     else:
-        return collapsed_tree, np.NaN, tree0, C_min_v_crossval, C_min_v_null
+        return collapsed_tree, np.NaN, tree0, C_min_v_crossval, C_min_v_null, p
 
 def tree_prediction(X, tree0):
     def tree_prediction_inner(xvec, current_tree):
@@ -418,9 +422,309 @@ internal_cross_val = 1
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
 LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
-y[LogicalInd] = 1
+# y[LogicalInd] = 1
 y_true = y
 y = y + 0.1 * np.random.random_sample(size=(nObs))
 alpha0 = 0.5
 beta0_vec = [0.01, np.inf]
-tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
+tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
+
+# Test: compare effect of internal_CV for selecting tree
+nObs = 500
+nPred = 4
+maxDepth = 4
+alpha0 = 0.5
+max_peek_depth = 0
+peek_ahead_quantiles = []
+nSamples = 10
+nIts = 500
+# noise_vec = [0.1, 0.25, 0.5, 1, 1.5, 2, 3]
+noise_vec = [0.1]
+CV_vs_rnd_over_sd = []
+pred_error_v_over_sd = []
+for noise0 in noise_vec:
+    CV_vs_rnd = []
+    pred_error_v = []
+    for internal_cross_val in range(2):
+        CV_vs_rnd.append([])
+        pred_error_v.append([])
+        for iIt in range(nIts):
+            print('Noise0 = ', noise0, ', internal cross val = ', internal_cross_val, ', iIt = ', iIt)
+            X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
+            y = np.zeros(nObs)
+            LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
+            y[LogicalInd] = 1 # Uncomment to add an effect
+            y_true = y
+            y = y + noise0 * np.random.random_sample(size=(nObs))
+
+            tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, nSamples=nSamples, internal_cross_val=internal_cross_val)
+
+            d_for_NHST = np.array(CV_distr) - np.array(null_distr)
+            CV_vs_rnd[-1].append(np.mean(d_for_NHST))
+
+            y_pred = tree_prediction(X, tree0)
+            pred_error = np.mean((y_pred - y_true)**2)
+            pred_error_v[-1].append(pred_error)
+
+        CV_vs_rnd_over_sd.append(CV_vs_rnd)
+        pred_error_v_over_sd.append(pred_error_v)
+
+to_plot_pred_error_effect = []
+for iNoise0 in range(len(noise_vec)):
+    noise0 = noise_vec[iNoise0]
+    CV_vs_rnd = CV_vs_rnd_over_sd[iNoise0]
+    pred_error_v = pred_error_v_over_sd[iNoise0]
+    to_plot_pred_error_effect.append([])
+    print('\n### Noise SD = ', noise0)
+    for internal_cross_val in range(2):
+        print("\tInternal CV = ", internal_cross_val)
+        CV_vs_rnd_this = CV_vs_rnd[internal_cross_val]
+        print('\tMean difference CV - null: ', np.mean(CV_vs_rnd_this))
+        print('\t\t', scipy.stats.ttest_1samp(CV_vs_rnd_this, 0))
+    print('---')
+    print('\tPrediction errors, internal_cross_val 0 vs 1: ', np.mean(pred_error_v[0]), np.mean(pred_error_v[1]))
+    print('\t\t', scipy.stats.ttest_ind(pred_error_v[0], pred_error_v[1]))
+        m_PE = np.mean(pred_error_v[0]) - np.mean(pred_error_v[1])
+        to_plot_pred_error_effect[-1].append(m_PE)
+
+f = open('Sims_Basic_Effect.pckl', 'wb')
+toSave = [CV_vs_rnd_over_sd, pred_error_v_over_sd]
+pickle.dump(toSave, f)
+f.close()
+
+f = open('Sims_Basic.pckl', 'rb')
+loadedArray = pickle.load(f)
+f.close()
+
+# XOR problem
+nObs = 1000
+nPred = 4
+maxDepth = 4 # Max. number of splits
+alpha0 = 0.5
+max_peek_depth = 1
+peek_ahead_quantiles = []
+X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
+y = np.zeros(nObs)
+LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)
+y[LogicalInd] = 1
+LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5)
+y[LogicalInd] = 1
+y = y + 0.1 * np.random.randn(nObs)
+y = np.round(y, 2)
+tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, peek_ahead_quantiles=peek_ahead_quantiles)
+
+# Higher-order XOR problem
+nObs = 4000
+nPred = 4
+maxDepth = 4 # Max. number of splits
+alpha0 = 0.5
+max_peek_depth = 2
+X = np.random.random_sample(size=(nObs, nPred))
+y = np.zeros(nObs)
+LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5) & (X[:, 2] < 0.5)
+y[LogicalInd] = 1
+LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] < 0.5) & (X[:, 2] >= 0.5)
+y[LogicalInd] = 1
+LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] >= 0.5) & (X[:, 2] >= 0.5)
+y[LogicalInd] = 1
+LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5) & (X[:, 2] < 0.5)
+y[LogicalInd] = 1
+y = y + 0.01 * np.random.randn(nObs)
+tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+
+# XOR problem: tests
+# Define "truth" by the true-model prediction of y, instead of trying to follow and compare paths.
+tree_true = [[3, 0.5], [[0, 0.5], 0, 1], [[0, 0.5], 1, 0]]
+nObs = 4000
+nPred = 6
+maxDepth = 4  # Max. number of splits
+alpha0 = 0.5
+nIts = 30
+error_greedy_v = []
+error_peek_v = []
+error_peek_ensemble_v = []
+noise0 = 0.1
+noise_prop_randperm = 0
+noise_prop_malice = 0.25
+N_noise_prop_randperm = int(np.ceil(noise_prop_randperm * nObs))
+N_noise_prop_malice = int(np.ceil(noise_prop_malice * nObs))
+for iIt in range(nIts):
+    print(iIt)
+    X = np.random.random_sample(size=(nObs, nPred))
+    y_true = tree_prediction(X, tree_true)
+    # Add noise to true y
+    y = np.array(y_true)
+    y[-N_noise_prop_malice:] = 1 - y[-N_noise_prop_malice:]
+    y[0:N_noise_prop_randperm] = np.random.permutation(y[0:N_noise_prop_randperm])
+    y = y + noise0 * np.random.randn(nObs)
+    # Run tree variants
+    tree_greedy, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 0)
+    y_greedy = tree_prediction(X, tree_greedy)
+    error_greedy = np.mean((np.array(y_true) - np.array(y_greedy))**2)
+    error_greedy_v.append(error_greedy)
+    tree_peek, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=1, internalEnsemble = 0)
+    y_peek = tree_prediction(X, tree_peek)
+    error_peek = np.mean((np.array(y_true) - np.array(y_peek))**2)
+    error_peek_v.append(error_peek)
+    tree_peek, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=1, internalEnsemble = 1)
+    y_peek_ensemble = tree_prediction(X, tree_peek)
+    error_peek_ensemble = np.mean((np.array(y_true) - np.array(y_peek_ensemble))**2)
+    error_peek_ensemble_v.append(error_peek_ensemble)
+# Compare
+# Greedy versus peek
+d = np.array(error_greedy_v) - np.array(error_peek_v)
+print(scipy.stats.ttest_1samp(d, 0))
+# Greedy versus ensemble
+d = np.array(error_greedy_v) - np.array(error_peek_ensemble_v)
+print(scipy.stats.ttest_1samp(d, 0))
+# Peek versus ensemble
+d = np.array(error_peek_v) - np.array(error_peek_ensemble_v)
+print(scipy.stats.ttest_1samp(d, 0))
+
+# Tests, non-XOR-specific
+tree_true = [[3, 0.5], [[0, 0.33], 0, [[1, 0.6], -1, 1]], 0]
+nObs = 400
+nPred = 6
+maxDepth = 4  # Max. number of splits
+alpha0 = 1
+nIts = 30
+error_greedy_v = []
+error_ensemble_v = []
+noise0 = 0.25
+noise_prop_randperm = 0
+noise_prop_malice = 0
+N_noise_prop_randperm = int(np.ceil(noise_prop_randperm * nObs))
+N_noise_prop_malice = int(np.ceil(noise_prop_malice * nObs))
+for iIt in range(nIts):
+    print(iIt)
+    X = np.random.random_sample(size=(nObs, nPred))
+    y_true = tree_prediction(X, tree_true)
+    # Add noise to true y
+    y = np.array(y_true)
+    y[-N_noise_prop_malice:] = 1 - y[-N_noise_prop_malice:]
+    y[0:N_noise_prop_randperm] = np.random.permutation(y[0:N_noise_prop_randperm])
+    y = y + noise0 * np.random.randn(nObs)
+    # Run tree variants
+    tree_greedy, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=1, internalEnsemble = 0)
+    y_greedy = tree_prediction(X, tree_greedy)
+    error_greedy = np.mean((np.array(y_true) - np.array(y_greedy))**2)
+    error_greedy_v.append(error_greedy)
+    tree_ensemble, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep=0, internalEnsemble = 1)
+    y_ensemble = tree_prediction(X, tree_ensemble)
+    error_ensemble = np.mean((np.array(y_true) - np.array(y_ensemble))**2)
+    error_ensemble_v.append(error_ensemble)
+# Compare
+# Greedy versus ensemble
+d = np.array(error_greedy_v) - np.array(error_ensemble_v)
+print(scipy.stats.ttest_1samp(d, 0))
+
+#
+# Empirical data
+#
+import pandas as pd
+fn = 'D:/Dropbox/Work/Projects/GladwinParadigms/Current/2022_01_30_tree0/Data/Data.txt'
+DF = pd.read_csv(fn, delimiter="\t")
+print(DF.columns)
+y = DF['AUDIT3'].to_numpy()
+yz = (y - np.nanmean(y)) / np.sqrt(np.var(y))
+pred_names = ['PhysicalAggr', 'VerbalAggr', 'Anger', 'Hostility', 'PHQ9', 'Total', 'STAI1', 'DMQ_Soc', 'DMQ_Coping', 'DMQ_Enh', 'DMQ_Conform', 'RALD_LossOfControl', 'RALD_AdverseConseq', 'RALD_Convictions', 'ACS_Compuls', 'ACS_Expect', 'ACS_Purpose', 'ACS_Emot']
+X = DF[pred_names].to_numpy()
+Xz = np.array([(Xcol - np.nanmean(Xcol, axis=0)) / np.sqrt(np.var(Xcol, axis=0)) for Xcol in X.T]).T
+#
+maxDepth = 4 # Max. number of splits
+alpha0 = 0.5
+tree0, cost_complexity_criterion = teg_regression_tree(Xz, yz, maxDepth, alpha0)
+for index, value in enumerate(pred_names):
+    print(index, value, end='.\t')
+    if (index + 1) % 5 == 0:
+        print()
+#
+Xtest = np.random.normal(size=(1000, 5))
+np.corrcoef(Xtest.T)
+#PCA for indep predictors
+Cov0 = np.cov(Xz.T)
+eigen_vals0, eigen_vecs0 = np.linalg.eig(Cov0)
+ind0 = np.flip(np.argsort(eigen_vals0))
+eigen_vals0 = eigen_vals0[ind0]
+eigen_vecs0 = eigen_vecs0[:, ind0]
+elbow0 = 5
+eigen_vecs = eigen_vecs0[:, 0:elbow0]
+L = Xz @ eigen_vecs
+print(np.corrcoef(L.T))
+# print(eigen_vecs.T[3])
+a = [10, 11, 12, 4, 5, 1, 9, 4, 3, 22, 10, 9, 1, 2, 1, 0, 8, 2];
+A = np.reshape(a, (3, 6)).T
+A = A - np.mean(A, axis=0)
+Cov0 = np.cov(A.T)
+eigen_vals0, eigen_vecs0 = np.linalg.eig(Cov0)
+L = A @ eigen_vecs0
+np.corrcoef(L.T)
+# FA
+from sklearn.decomposition import FactorAnalysis, PCA
+fa = FactorAnalysis(rotation='varimax')
+elbow0 = 5
+fa.set_params(n_components=elbow0)
+fa.fit(Xz)
+components = fa.components_
+L = fa.fit_transform(Xz)
+#
+print(np.corrcoef(L.T))
+#
+maxDepth = 4
+alpha0 = 0.5
+max_peek_depth = 2
+tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(L, y, maxDepth, alpha0, max_peek_depth)
+
+alpha0 = 0.5
+tree0, cost_complexity_criterion = teg_regression_tree(L, yz, maxDepth, alpha0, twostep = 1, internalEnsemble=1)
+# 1 = Social drinker, emotionality-craving
+# 3 = Enhancement, expectancy-craving
+# Statistics
+# Test overall fit vs null distrib
+# -> Or: Test absolute terminal value vs null distrib (FWE), only consider "paths" to those values as meaningful
+def get_max_abs_mean_preds(this_tree, current_max =-np.inf):
+    if isinstance(this_tree, float):
+        if np.abs(this_tree) > current_max:
+            current_max = np.abs(this_tree)
+        return current_max
+    else:
+        L_max = get_max_abs_mean_preds(this_tree[1], current_max)
+        R_max = get_max_abs_mean_preds(this_tree[2], current_max)
+        if L_max > current_max:
+            current_max = L_max
+        if R_max > current_max:
+            current_max = R_max
+        return current_max
+nIts = 200
+null_dist = []
+null_dist_CCC = []
+twostep = 1
+internalEnsemble = 0
+alpha0 = 0.5
+maxDepth = 4 # Max. number of splits
+y = yz.copy()
+# X = Xz.copy()
+X = L.copy()
+for iIt in range(nIts):
+    print(iIt, end='\t')
+    y_perm = np.random.choice(y, size=len(y))
+    tree0_perm, cost_complexity_criterion_perm = teg_regression_tree(X, y_perm, maxDepth, alpha0, twostep = twostep, internalEnsemble = internalEnsemble) # Make sure this matches observed tree
+    max_term_perm = get_max_abs_mean_preds(tree0_perm)
+    null_dist.append(max_term_perm)
+    null_dist_CCC.append(cost_complexity_criterion_perm)
+print()
+tree0, cost_complexity_criterion = teg_regression_tree(X, y, maxDepth, alpha0, twostep = twostep, internalEnsemble = internalEnsemble)
+max_term_obs = get_max_abs_mean_preds(tree0)
+p = sum(null_dist > max_term_obs)/len(null_dist)
+print('p (max abs mean pred) = ', p)
+p = sum(null_dist_CCC < cost_complexity_criterion)/len(null_dist_CCC) # Note low is good for CCC
+print('p (CCC) = ', p)
+for index, value in enumerate(components):
+    for index2, this_label in enumerate(pred_names):
+        print(index, index2, this_label, np.around(value[index2], 3))
+# Give proportional reduction in unexplained variance
+
+# NHST for max abs mean terminal val for fixed max depth
+
+# Fix tree for subsets of variables from PCA and get p-value; find more precise predictors within those subsets.
+
