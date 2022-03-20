@@ -28,7 +28,8 @@ def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, spli
             print(" ! New best tree !")
         print("\n")
     print("Best tree was found at peek-ahead depth = ", best_peek_crit)
-    return tree0, cost_complexity_criterion, best_peek_crit, best_raw_tree, best_C_min_v_crossval, best_C_min_v_null, p
+    Output = {'tree': tree0, 'cost_complexity_criterion':cost_complexity_criterion, 'best_peek_crit':best_peek_crit, 'best_raw_tree':best_raw_tree, 'best_C_min_v_crossval':best_C_min_v_crossval, 'best_C_min_v_null':best_C_min_v_null, 'p':p}
+    return Output
 
 def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, internal_cross_val=0, beta0_vec = [0, 0]):
 
@@ -422,10 +423,11 @@ internal_cross_val = 1
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
 LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
-# y[LogicalInd] = 1
+y[LogicalInd] = 1
 y_true = y
 y = y + 0.1 * np.random.random_sample(size=(nObs))
 alpha0 = 0.5
 beta0_vec = [0.01, np.inf]
-tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
-
+Output = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
+# Output contains keys: tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p
+# Access via, e.g., Output['p']
