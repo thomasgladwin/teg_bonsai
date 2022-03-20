@@ -2,7 +2,13 @@
 
 Originally a practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with a some variations that might make it more suitable for certain research purposes.
 
-First, I added "peek ahead" variation to deal with XOR patterns. "Peeking ahead" means: for each possible split, all possible immediately following splits (for a set of quantiles to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split; and this is repeated up to a given peek-ahead depth. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split. Second, it has an internal cross-validation option in which the tree is built on one random split-half of the data and pruned based on its application to the other split-half; the best tree based on the cross-validated cost complexity criterion over a number of random splits is chosen. Third, building on the cross-validation using independent sub-samples, a p-value is generated for null hypothesis significance testing. Finally, a "beta" parameter can be added to the usual alpha pruning parameter, which punishes potential splits, during tree generation, below a given proportion of the original number of observations. This prevents what might be obviously spurious or theoretically unimportant splits that could nevertheless affect the branching. This would lead, hopefully, to more interpretable trees.
+First, I added "peek ahead" variation to deal with XOR patterns. "Peeking ahead" means: for each possible split, all possible immediately following splits (for a set of quantiles to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split; and this is repeated up to a given peek-ahead depth. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
+
+Second, it has an internal cross-validation option in which the tree is built on one randomly selected split-half of the data and pruned based on its application to the other, non-overlapping split-half; the best tree based on the cross-validated cost complexity criterion over a number of random splits is chosen. This is controlled by the combination of the nSamples parameter and setting internal_cross_val = 1. nSamples specifies the number of random splits over which the best tree is selected based on the cross-validated criterion.
+
+Third, building on the cross-validation using independent sub-samples, a p-value is generated for null hypothesis significance testing. This is based on a random permutation of the cross-validation data. Thus, both the cross-validation and null sets are independent from the set used to create the tree under the null hypothesis of there being no dependence of the target y on the predictors X. The function returns the p-value for the one-sample t-test of the cross-validation-set minus null-set cost complexity criterion difference score over the random samples.
+
+Finally, a "beta" parameter can be added to the usual alpha pruning parameter, which punishes potential splits, during tree generation, below a given proportion of the original number of observations. This prevents what might be obviously spurious or theoretically unimportant splits that could nevertheless affect the branching. This would lead, hopefully, to more interpretable trees.
 
 Example usage with sanity-check simulated data:
 ```
@@ -15,7 +21,7 @@ X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
 LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
@@ -51,7 +57,7 @@ LogicalInd = (X[:, 1] > 0.5) & (X[:, 2] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
 LogicalInd = (X[:, 1] < 0.5) & (X[:, 2] > 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 
 This would tend to  (after some time, it's not fast...) print out the correct solution for a peek-ahead depth of 1, splitting first on X1 and then on each branch on X2:
