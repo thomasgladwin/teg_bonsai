@@ -1,28 +1,37 @@
 import numpy as np
 import scipy
 from scipy import stats
+import pickle
 
 #
 # Decision tree: Regression
 #
-def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, split_val_quantiles = [], peek_ahead_quantiles = []):
+def teg_regression_tree_peeks(X, y, maxDepth, alpha0, peek_ahead_max_depth, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, internal_cross_val=0, beta0_vec = 0):
     tree0 = []
     cost_complexity_criterion = np.inf
     best_peek_crit = np.NaN
+    best_raw_tree = []
+    best_C_min_v_crossval = []
+    best_C_min_v_null = []
     for peek_ahead_depth in range(peek_ahead_max_depth + 1):
         print('Finding tree for peek_ahead_depth = ', peek_ahead_depth)
-        tree0_this, cost_complexity_criterion_this = teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth=peek_ahead_depth, split_val_quantiles = split_val_quantiles, peek_ahead_quantiles=peek_ahead_quantiles)
+        tree0_this, cost_complexity_criterion_this, raw_tree, C_min_v_crossval, C_min_v_null = teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth=peek_ahead_depth, split_val_quantiles = split_val_quantiles, peek_ahead_quantiles = peek_ahead_quantiles, nSamples = nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
         print('Cost-Complexity Criterion = ', cost_complexity_criterion_this)
         if cost_complexity_criterion_this < cost_complexity_criterion:
             tree0 = tree0_this
             cost_complexity_criterion = cost_complexity_criterion_this
             best_peek_crit = peek_ahead_depth
+            best_raw_tree = raw_tree
+            best_C_min_v_crossval = C_min_v_crossval
+            best_C_min_v_null = C_min_v_null
             print(" ! New best tree !")
         print("\n")
     print("Best tree was found at peek-ahead depth = ", best_peek_crit)
-    return tree0, cost_complexity_criterion, best_peek_crit
+    return tree0, cost_complexity_criterion, best_peek_crit, best_raw_tree, best_C_min_v_crossval, best_C_min_v_null
 
-def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_quantiles = [], peek_ahead_quantiles = []):
+def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, internal_cross_val=0, beta0_vec = [0, 0]):
+
+    orig_y = y
 
     def teg_tree_scale_variants(X, y, maxDepth, iDepth=0, node_index_v = [0]):
         # print("Params: ", twostep, internalEnsemble)
@@ -30,7 +39,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
             node_index_v[0] = 0
         else:
             node_index_v[0] = node_index_v[0] + 1
-        #print(node_index_v)
+        # print(node_index_v)
         SS_pre_split = f_SS(y)
         # Check whether maxdepth passed or y is empty
         if (iDepth >= maxDepth) or (len(y) <= 1) or (SS_pre_split == 0):
@@ -70,7 +79,7 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
     def f_get_best_SS_peek(y, X, this_peek_ahead_depth, peek_ahead_maxDepth_limiter, current_peek_depth = 0):
         # print(current_peek_depth, peek_ahead_depth, peek_ahead_maxDepth_limiter)
         if (len(y) <= 1) or (current_peek_depth >= this_peek_ahead_depth) or (current_peek_depth >= peek_ahead_maxDepth_limiter):
-            return f_SS(y)
+            return f_SS_for_split(y)
         best_SS = np.inf
         best_feature_peek = np.nan
         best_val_peek = np.nan
@@ -121,6 +130,45 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
         return_val = np.sum((v - np.mean(v))**2)
         # print('141')
         return return_val
+
+    def f_SS_for_split(v):
+        p = len(v) / len(orig_y)
+        if (p < beta0_vec[0]) and (beta0_vec[0] > 0):
+            beta0_scaler = beta0_vec[1] * ((beta0_vec[0] - p) / beta0_vec[0])
+        else:
+            beta0_scaler = 0
+        return_val = f_SS(v) * (1 + beta0_scaler)
+        return return_val
+
+    # Generate tree with alternative SS_pre_split
+    def tree_copy(tree0, X_new, y_new, iDepth=0, node_index_v = [0]):
+        # tree_copy(raw_tree, X, y)
+        if (iDepth == 0):
+            node_index_v[0] = 0
+        else:
+            node_index_v[0] = node_index_v[0] + 1
+        # print(node_index_v)
+        if len(y_new) == 0:
+            terminal_node_pred = np.NaN
+        else:
+            terminal_node_pred = np.nanmean(y_new)
+        SS_pre_split = f_SS(y_new)
+        if len(y_new) == 0:
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
+        if not(isinstance(tree0, list)):
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
+        if np.isnan(tree0[0][0]):
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
+        best_split_feature = tree0[0][0]
+        best_split_val = tree0[0][1]
+        ind_left = (X_new[:, best_split_feature] < best_split_val)
+        ind_right = (X_new[:, best_split_feature] >= best_split_val)
+        SS_left = f_SS(y_new[ind_left])
+        SS_right = f_SS(y_new[ind_right])
+        best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y), node_index_v[0], iDepth, y_new]
+        branch_left = tree_copy(tree0[1], X_new[ind_left, :], y_new[ind_left], iDepth + 1)
+        branch_right = tree_copy(tree0[2], X_new[ind_right, :], y_new[ind_right], iDepth + 1)
+        return [best_split, branch_left, branch_right]
 
     # Cost-Complexity Pruning
     def retrieve_info_from_terminal_nodes(this_tree, nodes_to_collapse_tmp = [-1]):
@@ -179,12 +227,12 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
 
     def prune_the_tree(this_tree, alpha0):
         node_indices = get_internal_node_indices(this_tree)
-        #print(node_indices)
+        # print(node_indices)
         uncollapsed_v = [1 for a in node_indices]
         nodes_collapsed = []
         C = []
         while sum(uncollapsed_v) > 0:
-            #print('x')
+            # print('x', uncollapsed_v)
             C_vec_tmp = []
             iNode_indices_tmp = []
             iiNode_indices_tmp = []
@@ -253,12 +301,81 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
         return build_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y)
 
-    mean_y = np.nanmean(y)
-    sd_y = np.sqrt(np.var(y))
-    y = (y - mean_y) / sd_y
-    tree0 = teg_tree_scale_variants(X, y, maxDepth)
+    if (nSamples == 0):
+        mean_y = np.nanmean(y)
+        sd_y = np.sqrt(np.var(y))
+        y = (y - mean_y) / sd_y
+        tree0 = teg_tree_scale_variants(X, y, maxDepth)
+        C, nodes_collapsed = prune_the_tree(tree0, alpha0)
+        C_min_v_crossval = []
+        C_min_v_null = []
+    else:
+        best_mean_y = np.NaN
+        best_sd_y = np.NaN
+        best_C_min = np.inf
+        best_tree = []
+        best_C = []
+        best_nodes_collapsed = []
+        C_min_v_crossval = []
+        C_min_v_null = []
+        for iSample in range(nSamples):
+            #print(iSample)
+            # Random split sample into:
+            #   Subsample to construct tree
+            #   Independent subsample used for entropy per terminal node
+            # Additionally, create a randomly permuted sample to generate a null distribution over the samples
+            perm_indices = np.random.permutation(len(y))
+            a = int(np.floor(len(y) / 2))
+            set1_indices = perm_indices[1:a]
+            set2_indices = perm_indices[a:]
+            y_1 = y[set1_indices]
+            X_1 = X[set1_indices, :]
+            y_2 = y[set2_indices]
+            X_2 = X[set2_indices, :]
+            mean_y_1 = np.nanmean(y_1)
+            sd_y_1 = np.sqrt(np.var(y_1))
+            y_1 = (y_1 - mean_y_1) / sd_y_1
+            mean_y_2 = np.nanmean(y_2)
+            sd_y_2 = np.sqrt(np.var(y_2))
+            y_2 = (y_2 - mean_y_2) / sd_y_2
+            # Null distribution
+            y_null = np.random.permutation(y_2) # Already normalized
+            X_null = X_2.copy()
+            #
+            tree0 = teg_tree_scale_variants(X_1, y_1, maxDepth)
+            C, nodes_collapsed = prune_the_tree(tree0, alpha0)
+            tree0_check = tree_copy(tree0, X_1, y_1)
+            C_check, nodes_collapsed_check = prune_the_tree(tree0, alpha0)
+            tree0_CV = tree_copy(tree0, X_2, y_2)
+            C_CV, nodes_collapsed_CV = prune_the_tree(tree0_CV, alpha0)
+            tree0_null = tree_copy(tree0, X_null, y_null)
+            C_null, nodes_collapsed_null = prune_the_tree(tree0_null, alpha0)
+            #
+            C_min_v_crossval.append(np.min(C_CV))
+            C_min_v_null.append(np.min(C_null))
+            if internal_cross_val == 1:
+                best_C_min_to_use = np.min(C_CV)
+            else:
+                best_C_min_to_use = np.min(C)
+            # Pick the tree that has the lowest minimal CCC found in the C vector
+            if best_C_min_to_use < best_C_min:
+                best_C_min = best_C_min_to_use
+                best_mean_y = mean_y_1
+                best_sd_y = sd_y_1
+                if internal_cross_val == 1:
+                    best_tree = tree0_CV
+                    best_C = C_CV
+                    best_nodes_collapsed = nodes_collapsed_CV
+                else:
+                    best_tree = tree0
+                    best_C = C
+                    best_nodes_collapsed = nodes_collapsed
+        mean_y = best_mean_y
+        sd_y = best_sd_y
+        tree0 = best_tree
+        C = best_C
+        nodes_collapsed = best_nodes_collapsed
 
-    C, nodes_collapsed = prune_the_tree(tree0, alpha0)
     #print(tree0)
     #print(C)
     #print(nodes_collapsed)
@@ -266,9 +383,9 @@ def teg_regression_tree(X, y, maxDepth, alpha0, peek_ahead_depth = 0, split_val_
     print_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
     collapsed_tree = collapse_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
     if len(C) > 0:
-        return collapsed_tree, min(C)
+        return collapsed_tree, min(C), tree0, C_min_v_crossval, C_min_v_null
     else:
-        return collapsed_tree, np.NaN
+        return collapsed_tree, np.NaN, tree0, C_min_v_crossval, C_min_v_null
 
 def tree_prediction(X, tree0):
     def tree_prediction_inner(xvec, current_tree):
@@ -294,31 +411,16 @@ def tree_prediction(X, tree0):
 nObs = 1500
 nPred = 4
 maxDepth = 4
-alpha0 = 0.1
-max_peek_depth = 1
+max_peek_depth = 0
 peek_ahead_quantiles = []
+nSamples = 5
+internal_cross_val = 1
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
 LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
 y[LogicalInd] = 1
-y = y + 0.0 * np.random.random_sample(size=(nObs))
-y = np.round(y, 2)
-tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
-
-# XOR problem
-nObs = 1000
-nPred = 4
-maxDepth = 4 # Max. number of splits
+y_true = y
+y = y + 0.1 * np.random.random_sample(size=(nObs))
 alpha0 = 0.5
-max_peek_depth = 1
-peek_ahead_quantiles = []
-X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
-y = np.zeros(nObs)
-LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)
-y[LogicalInd] = 1
-LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5)
-y[LogicalInd] = 1
-y = y + 0.1 * np.random.randn(nObs)
-y = np.round(y, 2)
-tree0, cost_complexity_criterion, best_peek_crit = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, peek_ahead_quantiles=peek_ahead_quantiles)
-
+beta0_vec = [0.01, np.inf]
+tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
