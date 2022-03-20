@@ -74,5 +74,6 @@ This would tend to  (after some time, it's not fast...) print out the correct so
 
 Thomas Edward Gladwin. (2022). thomasgladwin/teg_regression_tree: Release 0.1 (v0.1). Zenodo. https://doi.org/10.5281/zenodo.6096530
 
-[![DOI](https://zenodo.org/badge/458932097.svg)](https://zenodo.org/badge/latestdoi/458932097)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6371375.svg)](https://doi.org/10.5281/zenodo.6371375)
 
