@@ -53,10 +53,12 @@ class Tree():
 
     def teg_regression_tree(self):
         if (self.nSamples == 0):
+            if self.internal_cross_val == 0:
+                print('Internal cross validation not used with nSamples=0.')
             mean_y = np.nanmean(self.y)
             sd_y = np.sqrt(np.var(self.y))
             y = (self.y - mean_y) / sd_y
-            tree0 = teg_tree_inner(self.X, y)
+            tree0 = self.teg_tree_inner(self.X, y)
             C, nodes_collapsed = self.prune_the_tree(tree0)
             C_min_v_crossval = []
             C_min_v_null = []
@@ -97,6 +99,7 @@ class Tree():
                 tree0 = self.teg_tree_inner(X_1, y_1)
                 C, nodes_collapsed = self.prune_the_tree(tree0)
                 tree0_CV = self.tree_copy(tree0, X_2, y_2)
+                #print(tree0_CV)
                 C_CV, nodes_collapsed_CV = self.prune_the_tree(tree0_CV)
                 tree0_null = self.tree_copy(tree0, X_null, y_null)
                 C_null, nodes_collapsed_null = self.prune_the_tree(tree0_null)
