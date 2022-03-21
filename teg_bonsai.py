@@ -346,7 +346,7 @@ def prune_the_tree(this_tree, alpha0):
         #print(iNode_indices_tmp)
         iiiNode_to_collapse = np.argmin(C_vec_tmp)
         iiNode_to_collapse = iiNode_indices_tmp[iiiNode_to_collapse]
-        iNode_to_collapse = iNode_indices_tmp[iiiNode_to_collapse]
+        iNode_to_collapse = iNode_indices_tmp[iiNode_to_collapse]
         ndf = get_downstream_nodes(this_tree, iNode_to_collapse)
         for intc in ndf: # iNodeToCollapse, includes source-collapser
             #print(intc)
