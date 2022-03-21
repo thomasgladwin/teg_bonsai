@@ -273,8 +273,8 @@ class Tree():
         best_split_val = tree0[0][1]
         ind_left = (X_new[:, best_split_feature] < best_split_val)
         ind_right = (X_new[:, best_split_feature] >= best_split_val)
-        SS_left = f_SS(y_new[ind_left])
-        SS_right = f_SS(y_new[ind_right])
+        SS_left = self.f_SS(y_new[ind_left])
+        SS_right = self.f_SS(y_new[ind_right])
         best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y_new), node_index_v[0], iDepth, y_new]
         branch_left = self.tree_copy(tree0[1], X_new[ind_left, :], y_new[ind_left], iDepth + 1)
         branch_right = self.tree_copy(tree0[2], X_new[ind_right, :], y_new[ind_right], iDepth + 1)
@@ -362,7 +362,7 @@ class Tree():
             iiiNode_to_collapse = np.argmin(C_vec_tmp)
             iiNode_to_collapse = iiNode_indices_tmp[iiiNode_to_collapse]
             iNode_to_collapse = iNode_indices_tmp[iiiNode_to_collapse]
-            ndf = get_downstream_nodes(this_tree, iNode_to_collapse)
+            ndf = self.get_downstream_nodes(this_tree, iNode_to_collapse)
             for intc in ndf: # iNodeToCollapse, includes source-collapser
                 #print(intc)
                 for ii in range(len(node_indices)):
