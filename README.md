@@ -1,6 +1,6 @@
 # teg_regression_tree
 
-Originally a practice project and for messing-around purposes: regression tree function, a la The Elements of Statistical Learning, with a some variations that might make it more suitable for certain research purposes.
+Originally a practice project and for messing-around purposes: a regression tree function, a la The Elements of Statistical Learning, with a some variations that might make it more suitable for certain research purposes. The functions are in teg_bonsai.py, and examples are in exmaples.py.
 
 First, I added "peek ahead" variation to deal with XOR patterns (and, up to a specified maximum peek-ahead depth, arbirtarily higher-order nested XOR's, although it gets slow quickly). "Peeking ahead" means: for each possible split, all possible immediately following splits (for a set of quantiles to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split; and this is repeated up to a given peek-ahead depth. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
 
@@ -12,6 +12,8 @@ Finally, a "beta" parameter can be added to the usual alpha pruning parameter, w
 
 Example usage with sanity-check simulated data:
 ```
+import numpy as np
+import teg_bonsai
 nObs = 2000
 nPred = 6
 maxDepth = 4 # Max. number of splits
@@ -21,7 +23,7 @@ X = np.random.random_sample(size=(nObs, nPred))
 y = 0.1 * np.random.random_sample(size=(nObs))
 LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-Output = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+Output = teg_bonsai.teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
@@ -46,6 +48,8 @@ The cost-complexity criterion is also returned, for cross-validation of the alph
 An XOR example where the traditional tree fails but the current implementation can deal with is as follows:
 
 ```
+import numpy as np
+import teg_bonsai
 nObs = 2000
 nPred = 6
 maxDepth = 4 # Max. number of splits
@@ -57,7 +61,7 @@ LogicalInd = (X[:, 1] > 0.5) & (X[:, 2] < 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
 LogicalInd = (X[:, 1] < 0.5) & (X[:, 2] > 0.5)
 y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-Output = teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+Output = teg_bonsai.teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
 ```
 
 This would tend to  (after some time, it's not fast...) print out the correct solution for a peek-ahead depth of 1, splitting first on X1 and then on each branch on X2:
