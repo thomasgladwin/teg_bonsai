@@ -81,8 +81,8 @@ This would tend to  (after some time, it's not fast...) print out the correct so
 		 terminal node:  0.050296324591483414
 ```
 
-Thomas E. Gladwin (2022). thomasgladwin/teg_regression_tree: Update 1 (v1.0). Zenodo. https://doi.org/10.5281/zenodo.6371375
+Thomas E. Gladwin (2022). thomasgladwin/teg_bonsai: Class version (v1.1). Zenodo. https://doi.org/10.5281/zenodo.6374306.
 
+[![DOI](https://zenodo.org/badge/458932097.svg)](https://zenodo.org/badge/latestdoi/458932097)
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6371375.svg)](https://doi.org/10.5281/zenodo.6371375)
 
