@@ -1,4 +1,4 @@
-# teg_regression_tree
+# teg_bonsai
 
 Originally a practice project and for messing-around purposes: a regression tree function, a la The Elements of Statistical Learning, with a some variations that might make it more suitable for certain research purposes. The functions are in teg_bonsai.py, and examples are in exmaples.py.
 
