@@ -12,18 +12,22 @@ Finally, a "beta" parameter can be added to the usual alpha pruning parameter, w
 
 Example usage with sanity-check simulated data:
 ```
-import numpy as np
-import teg_bonsai
-nObs = 2000
-nPred = 6
-maxDepth = 4 # Max. number of splits
+nObs = 1500
+nPred = 4
+maxDepth = 4
+peek_ahead_max_depth = 0
+nSamples = 5
+internal_cross_val = 1
+X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
+y = np.zeros(nObs)
+LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
+y[LogicalInd] = 1
+y_true = y
+y = y + 0.1 * np.random.random_sample(size=(nObs))
 alpha0 = 0.5
-max_peek_depth = 2
-X = np.random.random_sample(size=(nObs, nPred))
-y = 0.1 * np.random.random_sample(size=(nObs))
-LogicalInd = (X[:, 1] > 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
-y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-Output = teg_bonsai.teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+beta0_vec = [0.01, np.inf]
+tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
+Output = tree.build_tree()
 ```
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
@@ -48,20 +52,21 @@ The cost-complexity criterion is also returned, for cross-validation of the alph
 An XOR example where the traditional tree fails but the current implementation can deal with is as follows:
 
 ```
-import numpy as np
-import teg_bonsai
-nObs = 2000
-nPred = 6
+nObs = 1000
+nPred = 4
 maxDepth = 4 # Max. number of splits
-max_peek_depth = 2
 alpha0 = 0.5
-X = np.random.random_sample(size=(nObs, nPred))
-y = 0.1 * np.random.random_sample(size=(nObs))
-LogicalInd = (X[:, 1] > 0.5) & (X[:, 2] < 0.5)
-y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-LogicalInd = (X[:, 1] < 0.5) & (X[:, 2] > 0.5)
-y[LogicalInd] = 1 - (1 - y[LogicalInd]) * 0.25
-Output = teg_bonsai.teg_regression_tree_peeks(X, y, maxDepth, alpha0, max_peek_depth)
+peek_ahead_max_depth = 1
+X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
+y = np.zeros(nObs)
+LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)
+y[LogicalInd] = 1
+LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5)
+y[LogicalInd] = 1
+y = y + 0.1 * np.random.randn(nObs)
+y = np.round(y, 2)
+tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
+Output = tree.build_tree()
 ```
 
 This would tend to  (after some time, it's not fast...) print out the correct solution for a peek-ahead depth of 1, splitting first on X1 and then on each branch on X2:
