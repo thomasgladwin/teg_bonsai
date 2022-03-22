@@ -142,20 +142,21 @@ class Tree():
         else:
             return collapsed_tree, np.NaN, tree0, C_min_v_crossval, C_min_v_null, p
 
-    def teg_tree_inner(self, X, y, iDepth=0, node_index_v = [0]):
+    def teg_tree_inner(self, X, y, iDepth=0, node_index_v = [0], prev_terminal_node_pred=np.nan):
         # print("Params: ", twostep, internalEnsemble)
         if (iDepth == 0):
             node_index_v[0] = 0
         else:
             node_index_v[0] = node_index_v[0] + 1
         # print(node_index_v)
+        terminal_node_pred = np.nanmean(y)
         SS_pre_split = self.f_SS(y)
         # Check whether maxdepth passed or y is empty
         if (iDepth >= self.maxDepth) or (len(y) <= 1) or (SS_pre_split == 0):
             if len(y) > 0:
                 terminal_node_pred = np.nanmean(y)
             else:
-                terminal_node_pred = np.NaN
+                terminal_node_pred = prev_terminal_node_pred
             return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
         # Create branches
         # Check one step ahead
@@ -174,14 +175,14 @@ class Tree():
             if len(y) > 0:
                 terminal_node_pred = np.nanmean(y)
             else:
-                terminal_node_pred = np.NaN
+                terminal_node_pred = prev_terminal_node_pred
             return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
         ind_left = (X[:, best_split_feature] < best_split_val)
         ind_right = (X[:, best_split_feature] >= best_split_val)
         SS_left = self.f_SS(y[ind_left])
         SS_right = self.f_SS(y[ind_right])
         best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y), node_index_v[0], iDepth, y]
-        branch_left = self.teg_tree_inner(X[ind_left, :], y[ind_left], iDepth + 1)
+        branch_left = self.teg_tree_inner(X[ind_left, :], y[ind_left], iDepth + 1, prev_terminal_node_pred=terminal_node_pred)
         branch_right = self.teg_tree_inner(X[ind_right, :], y[ind_right], iDepth + 1)
         return [best_split, branch_left, branch_right]
 
@@ -387,7 +388,10 @@ class Tree():
                 print_tree_inner(this_tree[1], nodes_collapsed_choice, mean_y, sd_y)
                 print_tree_inner(this_tree[2], nodes_collapsed_choice, mean_y, sd_y)
             else:
-                m = np.nanmean(this_tree[0][-1])
+                if len(this_tree[0][-1]) > 0:
+                    m = np.nanmean(this_tree[0][-1])
+                else:
+                    m = 0 # Note: target values are normalized
                 print(indent0, 'terminal node: ', mean_y + sd_y * m)
         if len(C) == 0:
             print('Empty tree.');
@@ -402,7 +406,10 @@ class Tree():
                 to_report = this_tree[0][0:2]
                 return [to_report, build_tree_inner(this_tree[1], nodes_collapsed_choice, mean_y, sd_y), build_tree_inner(this_tree[2], nodes_collapsed_choice, mean_y, sd_y)]
             else:
-                to_report = mean_y + sd_y * np.nanmean(this_tree[0][-1])
+                if len(this_tree[0][-1]) > 0:
+                    to_report = mean_y + sd_y * np.nanmean(this_tree[0][-1])
+                else:
+                    to_report = mean_y
                 return to_report
         if len(C) == 0:
             return []
