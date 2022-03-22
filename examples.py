@@ -31,6 +31,9 @@ nPred = 4
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 peek_ahead_max_depth = 1
+nSamples = 0
+internal_cross_val = 0
+beta0_vec = [0, np.inf]
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
 LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)

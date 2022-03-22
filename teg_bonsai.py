@@ -115,14 +115,9 @@ class Tree():
                     best_C_min = best_C_min_to_use
                     best_mean_y = mean_y_1
                     best_sd_y = sd_y_1
-                    if self.internal_cross_val == 1:
-                        best_tree = tree0_CV
-                        best_C = C_CV
-                        best_nodes_collapsed = nodes_collapsed_CV
-                    else:
-                        best_tree = tree0
-                        best_C = C
-                        best_nodes_collapsed = nodes_collapsed
+                    best_tree = tree0
+                    best_C = C
+                    best_nodes_collapsed = nodes_collapsed
             mean_y = best_mean_y
             sd_y = best_sd_y
             tree0 = best_tree
@@ -256,7 +251,7 @@ class Tree():
 
     # Generate tree with alternative SS_pre_split
     def tree_copy(self, tree0, X_new, y_new, iDepth=0, node_index_v = [0], previous_terminal_node_pred=np.nan):
-        # tree_copy(raw_tree, X, y)
+        #print(tree0[0][0:4], node_index_v, iDepth)
         if (iDepth == 0):
             node_index_v[0] = 0
         else:
@@ -273,6 +268,7 @@ class Tree():
             return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y_new], np.NaN, np.NaN]
         if np.isnan(tree0[0][0]):
             return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y_new], np.NaN, np.NaN]
+        #print('Non-terminal node')
         best_split_feature = tree0[0][0]
         best_split_val = tree0[0][1]
         ind_left = (X_new[:, best_split_feature] < best_split_val)
@@ -282,6 +278,7 @@ class Tree():
         best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y_new), node_index_v[0], iDepth, y_new]
         branch_left = self.tree_copy(tree0[1], X_new[ind_left, :], y_new[ind_left], iDepth + 1, previous_terminal_node_pred=terminal_node_pred)
         branch_right = self.tree_copy(tree0[2], X_new[ind_right, :], y_new[ind_right], iDepth + 1, previous_terminal_node_pred=terminal_node_pred)
+        #print(branch_left[0][0], branch_right[0][0])
         return [best_split, branch_left, branch_right]
 
     # Cost-Complexity Pruning
@@ -345,34 +342,35 @@ class Tree():
         nodes_collapsed = []
         C = []
         while sum(uncollapsed_v) > 0:
+            #print('uncollapsed_v: ', uncollapsed_v)
+            #print('nodes_collapsed: ', nodes_collapsed[:8])
             # print('x', uncollapsed_v)
             C_vec_tmp = []
             iNode_indices_tmp = []
-            iiNode_indices_tmp = []
             #print(node_indices)
             #print(uncollapsed_v)
             for iiNode in range(len(node_indices)):
-                iNode = node_indices[iiNode]
                 if uncollapsed_v[iiNode] == 0:
                     continue
+                iNode = node_indices[iiNode]
+                iNode_indices_tmp.append(iNode)
                 nodes_to_collapse_tmp = nodes_collapsed.copy()
                 nodes_to_collapse_tmp.append(iNode)
                 this_C = self.f_C(this_tree, nodes_to_collapse_tmp)
                 C_vec_tmp.append(this_C)
-                iNode_indices_tmp.append(iNode)
-                iiNode_indices_tmp.append(iiNode)
             #print(iiNode_indices_tmp)
             #print(iNode_indices_tmp)
-            iiiNode_to_collapse = np.argmin(C_vec_tmp)
-            iiNode_to_collapse = iiNode_indices_tmp[iiiNode_to_collapse]
-            iNode_to_collapse = iNode_indices_tmp[iiiNode_to_collapse]
+            i_C_vec_tmp = np.argmin(C_vec_tmp)
+            iNode_to_collapse = iNode_indices_tmp[i_C_vec_tmp]
+            #print('iNode_to_collapse: ', iNode_to_collapse, ', i_C_vec_tmp: ', i_C_vec_tmp)
             ndf = self.get_downstream_nodes(this_tree, iNode_to_collapse)
-            for intc in ndf: # iNodeToCollapse, includes source-collapser
-                #print(intc)
-                for ii in range(len(node_indices)):
-                    #print(ii)
-                    if intc == node_indices[ii]:
-                        uncollapsed_v[ii] = 0
+            #print('ndf: ', ndf)
+            for iNode_downstream in ndf: # iNodeToCollapse, includes source-collapser
+                for iiNode in range(len(node_indices)):
+                    #print('In loop: ', iNode_downstream, iiNode, node_indices[iiNode])
+                    if iNode_downstream == node_indices[iiNode]:
+                        #print('\tCollapse')
+                        uncollapsed_v[iiNode] = 0
             nodes_collapsed.append(iNode_to_collapse)
             C.append(min(C_vec_tmp))
             #print(iiNode_to_collapse, iNode_to_collapse)
