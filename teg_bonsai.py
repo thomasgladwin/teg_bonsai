@@ -47,7 +47,7 @@ class Tree():
                 print(" ! New best tree !")
             print("\n")
         print("Best tree was found at peek-ahead depth = ", best_peek_crit)
-        Output = {'tree': tree0, 'cost_complexity_criterion':cost_complexity_criterion, 'best_peek_crit':best_peek_crit, 'best_raw_tree':best_raw_tree, 'best_C_min_v_crossval':best_C_min_v_crossval, 'best_C_min_v_null':best_C_min_v_null, 'p':p}
+        Output = {'tree': tree0, 'cost_complexity_criterion':cost_complexity_criterion, 'best_peek_crit':best_peek_crit, 'raw_tree':best_raw_tree, 'CV_distr':best_C_min_v_crossval, 'null_distr':best_C_min_v_null, 'p':p}
         self.tree_info = Output
         return Output
 
@@ -410,23 +410,23 @@ class Tree():
         nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
         return build_tree_inner(this_tree, nodes_collapsed_choice, mean_y, sd_y)
 
-    def tree_prediction(self, X, tree0):
-        def tree_prediction_inner(xvec, current_tree):
-            if not isinstance(current_tree, list):
-                prediction = current_tree
+def tree_prediction(X, tree0):
+    def tree_prediction_inner(xvec, current_tree):
+        if not isinstance(current_tree, list):
+            prediction = current_tree
+        else:
+            this_split_var = current_tree[0][0]
+            this_split_val = current_tree[0][1]
+            if (xvec[this_split_var] < this_split_val):
+                branch = current_tree[1]
             else:
-                this_split_var = current_tree[0][0]
-                this_split_val = current_tree[0][1]
-                if (xvec[this_split_var] < this_split_val):
-                    branch = current_tree[1]
-                else:
-                    branch = current_tree[2]
-                if isinstance(branch, list):
-                    prediction = self.tree_prediction_inner(xvec, branch)
-                else:
-                    prediction = branch
-            return prediction
-        y_pred = []
-        for xrow in X:
-            y_pred.append(self.tree_prediction_inner(xrow, tree0))
-        return y_pred
+                branch = current_tree[2]
+            if isinstance(branch, list):
+                prediction = tree_prediction_inner(xvec, branch)
+            else:
+                prediction = branch
+        return prediction
+    y_pred = []
+    for xrow in X:
+        y_pred.append(tree_prediction_inner(xrow, tree0))
+    return y_pred
