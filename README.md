@@ -8,7 +8,7 @@ Second, it has an internal cross-validation option in which the tree is built on
 
 Third, building on the cross-validation using independent sub-samples, a p-value is generated for null hypothesis significance testing. This is based on a random permutation of the cross-validation data. Thus, both the cross-validation and null sets are independent from the set used to create the tree under the null hypothesis of there being no dependence of the target y on the predictors X. The function returns the p-value for the one-sample t-test of the cross-validation-set minus null-set cost complexity criterion difference score over the random samples.
 
-Finally, a "beta" parameter can be added to the usual alpha pruning parameter, which punishes potential splits, during tree generation, below a given proportion of the original number of observations. This prevents what might be obviously spurious or theoretically unimportant splits that could nevertheless affect the branching. This would lead, hopefully, to more interpretable trees.
+Finally, a "beta" parameter can be added to the usual alpha pruning parameter, which punishes potential splits, during tree generation, below a given proportion of the original number of observations. This is controlled by a two-element vector: the proportion of observation when the punishment starts, and a coefficient for a linear proportional increase in sum of squares (infinity can be used to effectively forbid small splits). The idea is to prevent what might be obviously spurious or theoretically unimportant splits that could nevertheless affect the branching. This would lead, hopefully, to more interpretable trees.
 
 Example usage with sanity-check simulated data:
 ```
