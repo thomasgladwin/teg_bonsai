@@ -20,7 +20,7 @@ alpha0 = 0.5
 beta0_vec = [0.01, np.inf]
 tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
 Output = tree.build_tree()
-# Output contains keys: tree0, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p
+# Output contains keys: tree, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p
 # Access via, e.g., Output['p']
 
 #
