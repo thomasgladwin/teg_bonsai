@@ -149,7 +149,10 @@ class Tree():
         else:
             node_index_v[0] = node_index_v[0] + 1
         # print(node_index_v)
-        terminal_node_pred = np.nanmean(y)
+        if len(y) > 0:
+            terminal_node_pred = np.nanmean(y)
+        else:
+            terminal_node_pred = 0
         SS_pre_split = self.f_SS(y)
         # Check whether maxdepth passed or y is empty
         if (iDepth >= self.maxDepth) or (len(y) <= 1) or (SS_pre_split == 0):
