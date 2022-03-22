@@ -251,7 +251,7 @@ class Tree():
         return return_val
 
     # Generate tree with alternative SS_pre_split
-    def tree_copy(self, tree0, X_new, y_new, iDepth=0, node_index_v = [0]):
+    def tree_copy(self, tree0, X_new, y_new, iDepth=0, node_index_v = [0], previous_terminal_node_pred=np.nan):
         # tree_copy(raw_tree, X, y)
         if (iDepth == 0):
             node_index_v[0] = 0
@@ -259,7 +259,7 @@ class Tree():
             node_index_v[0] = node_index_v[0] + 1
         # print(node_index_v)
         if len(y_new) == 0:
-            terminal_node_pred = np.NaN
+            terminal_node_pred = previous_terminal_node_pred
         else:
             terminal_node_pred = np.nanmean(y_new)
         SS_pre_split = self.f_SS(y_new)
@@ -276,8 +276,8 @@ class Tree():
         SS_left = self.f_SS(y_new[ind_left])
         SS_right = self.f_SS(y_new[ind_right])
         best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y_new), node_index_v[0], iDepth, y_new]
-        branch_left = self.tree_copy(tree0[1], X_new[ind_left, :], y_new[ind_left], iDepth + 1)
-        branch_right = self.tree_copy(tree0[2], X_new[ind_right, :], y_new[ind_right], iDepth + 1)
+        branch_left = self.tree_copy(tree0[1], X_new[ind_left, :], y_new[ind_left], iDepth + 1, previous_terminal_node_pred=terminal_node_pred)
+        branch_right = self.tree_copy(tree0[2], X_new[ind_right, :], y_new[ind_right], iDepth + 1, previous_terminal_node_pred=terminal_node_pred)
         return [best_split, branch_left, branch_right]
 
     # Cost-Complexity Pruning
