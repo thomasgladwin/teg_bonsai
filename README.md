@@ -48,16 +48,16 @@ Each non-terminal node is a triplet containing a 2-element list with the feature
 
 The cost-complexity criterion is also returned, for cross-validation of the alpha parameter.
 
-An XOR example where the traditional tree fails but the current implementation can deal with is as follows:
+An XOR example that the traditional tree would fail on but the current implementation can deal with is as follows:
 
 ```
-nObs = 1000
+nObs = 1500
 nPred = 4
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 peek_ahead_max_depth = 1
-nSamples = 0
-internal_cross_val = 0
+nSamples = 5
+internal_cross_val = 1
 beta0_vec = [0, np.inf]
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
@@ -65,7 +65,7 @@ LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)
 y[LogicalInd] = 1
 LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5)
 y[LogicalInd] = 1
-y = y + 0.1 * np.random.randn(nObs)
+y = y + 0.01 * np.random.randn(nObs)
 y = np.round(y, 2)
 tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
 Output = tree.build_tree()
@@ -74,15 +74,14 @@ Output = tree.build_tree()
 This would tend to  (after some time, it's not fast...) print out the correct solution for a peek-ahead depth of 1, splitting first on X1 and then on each branch on X2:
 
 ```
- [0, 0.5]
+[0, 0.5]
 	 [1, 0.5]
-		 terminal node:  0.0033596837944664393
-		 terminal node:  1.019908675799087
-	 [1, 0.63]
-		 [1, 0.5]
-			 terminal node:  1.0000803212851404
-			 terminal node:  -0.008765432098765458
-		 terminal node:  -0.010757575757575799
+		 terminal node:  0.00044943820224707665
+		 terminal node:  0.9996446700507615
+	 [1, 0.5]
+		 terminal node:  0.9997395833333333
+		 terminal node:  0.00010989010989015391
+
 ```
 
 Thomas E. Gladwin (2022). thomasgladwin/teg_bonsai: Class version (v1.1). Zenodo. https://doi.org/10.5281/zenodo.6374306.
