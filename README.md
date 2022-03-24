@@ -20,7 +20,7 @@ nSamples = 5
 internal_cross_val = 1
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
-LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
+LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
 y[LogicalInd] = 1
 y_true = y
 y = y + 0.1 * np.random.random_sample(size=(nObs))
@@ -36,7 +36,7 @@ The function prints out the tree as follows, with low and high branches starting
 	 terminal node:  0.05188583804970138
 	 [2, 0.33236530087901717]
 		 [4, 0.5128665191583686]
-			 terminal node:  0.7623787750856714
+			 terminal node:  0.9623787750856714
 			 terminal node:  0.04541482950659097
 		 terminal node:  0.051131886885080774
 ```
@@ -75,9 +75,9 @@ This would tend to  (after some time, it's not fast...) print out the correct so
  [1, 0.500026730694157]
 	 [2, 0.5013652634065338]
 		 terminal node:  0.0495724290546912
-		 terminal node:  0.7629087465214373
+		 terminal node:  0.9629087465214373
 	 [2, 0.5010964456753848]
-		 terminal node:  0.7627006991381066
+		 terminal node:  0.9627006991381066
 		 terminal node:  0.050296324591483414
 ```
 
