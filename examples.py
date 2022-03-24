@@ -26,13 +26,13 @@ Output = tree.build_tree()
 #
 # XOR problem requiring peek-ahead
 #
-nObs = 1000
+nObs = 1500
 nPred = 4
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 peek_ahead_max_depth = 1
-nSamples = 0
-internal_cross_val = 0
+nSamples = 5
+internal_cross_val = 1
 beta0_vec = [0, np.inf]
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
@@ -40,7 +40,7 @@ LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)
 y[LogicalInd] = 1
 LogicalInd = (X[:, 0] < 0.5) & (X[:, 1] >= 0.5)
 y[LogicalInd] = 1
-y = y + 0.1 * np.random.randn(nObs)
+y = y + 0.01 * np.random.randn(nObs)
 y = np.round(y, 2)
 tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
 Output = tree.build_tree()

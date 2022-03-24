@@ -53,7 +53,7 @@ class Tree():
 
     def teg_regression_tree(self):
         if (self.nSamples == 0):
-            if self.internal_cross_val == 0:
+            if self.internal_cross_val == 1:
                 print('Internal cross validation not used with nSamples=0.')
             mean_y = np.nanmean(self.y)
             sd_y = np.sqrt(np.var(self.y))
