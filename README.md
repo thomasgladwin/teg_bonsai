@@ -20,7 +20,7 @@ nSamples = 5
 internal_cross_val = 1
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
-LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33) & (X[:, 4] < 0.5)
+LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
 y[LogicalInd] = 1
 y_true = y
 y = y + 0.1 * np.random.random_sample(size=(nObs))
@@ -32,18 +32,17 @@ Output = tree.build_tree()
 The function prints out the tree as follows, with low and high branches starting on different lines with the same indentation, with the predicted value shown for terminal nodes:
 
 ```
-[1, 0.8125486774415731]
-	 terminal node:  0.05188583804970138
-	 [2, 0.33236530087901717]
-		 [4, 0.5128665191583686]
-			 terminal node:  0.9623787750856714
-			 terminal node:  0.04541482950659097
-		 terminal node:  0.051131886885080774
+ [0, 0.8]
+	 terminal node:  0.048479900254497554
+	 [2, 0.33]
+		 terminal node:  1.0560146013204075
+		 terminal node:  0.050794105233023815
+
 ```
 
 The function also returns a nested list representing the tree, as one of the elements in Output:
 
-`[[1, 0.8125486774415731], 0.05188583804970138, [[2, 0.33236530087901717], [[4, 0.5128665191583686], 0.9623787750856714, 0.04541482950659097], 0.051131886885080774]]`
+`[[0, 0.8], 0.048479900254497554, [[2, 0.33], 1.0560146013204075, 0.050794105233023815]]`
 
 Each non-terminal node is a triplet containing a 2-element list with the feature-index and split-point of the node, the left-branch, and the right-branch. Terminal nodes are represented by the predicted value at that node.
 
@@ -57,6 +56,9 @@ nPred = 4
 maxDepth = 4 # Max. number of splits
 alpha0 = 0.5
 peek_ahead_max_depth = 1
+nSamples = 0
+internal_cross_val = 0
+beta0_vec = [0, np.inf]
 X = np.round(np.random.random_sample(size=(nObs, nPred)), 2)
 y = np.zeros(nObs)
 LogicalInd = (X[:, 0] >= 0.5) & (X[:, 1] < 0.5)
@@ -72,13 +74,15 @@ Output = tree.build_tree()
 This would tend to  (after some time, it's not fast...) print out the correct solution for a peek-ahead depth of 1, splitting first on X1 and then on each branch on X2:
 
 ```
- [1, 0.500026730694157]
-	 [2, 0.5013652634065338]
-		 terminal node:  0.0495724290546912
-		 terminal node:  0.9629087465214373
-	 [2, 0.5010964456753848]
-		 terminal node:  0.9627006991381066
-		 terminal node:  0.050296324591483414
+ [0, 0.5]
+	 [1, 0.5]
+		 terminal node:  0.0033596837944664393
+		 terminal node:  1.019908675799087
+	 [1, 0.63]
+		 [1, 0.5]
+			 terminal node:  1.0000803212851404
+			 terminal node:  -0.008765432098765458
+		 terminal node:  -0.010757575757575799
 ```
 
 Thomas E. Gladwin (2022). thomasgladwin/teg_bonsai: Class version (v1.1). Zenodo. https://doi.org/10.5281/zenodo.6374306.
