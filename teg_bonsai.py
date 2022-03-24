@@ -100,14 +100,18 @@ class Tree():
                 C, nodes_collapsed = self.prune_the_tree(tree0)
                 tree0_CV = self.tree_copy(tree0, X_2, y_2)
                 #print(tree0_CV)
-                C_CV, nodes_collapsed_CV = self.prune_the_tree(tree0_CV)
+                min_C_CV = self.f_C(tree0_CV, nodes_collapsed)
+                #C_CV, nodes_collapsed_CV = self.prune_the_tree(tree0_CV)
+                #min_C_CV = np.min(C_CV)
                 tree0_null = self.tree_copy(tree0, X_null, y_null)
-                C_null, nodes_collapsed_null = self.prune_the_tree(tree0_null)
+                min_C_null = self.f_C(tree0_null, nodes_collapsed)
+                #C_null, nodes_collapsed_null = self.prune_the_tree(tree0_null)
+                #min_C_null = np.min(C_null)
                 #
-                C_min_v_crossval.append(np.min(C_CV))
-                C_min_v_null.append(np.min(C_null))
+                C_min_v_crossval.append(min_C_CV)
+                C_min_v_null.append(min_C_null)
                 if self.internal_cross_val == 1:
-                    best_C_min_to_use = np.min(C_CV)
+                    best_C_min_to_use = min_C_CV
                 else:
                     best_C_min_to_use = np.min(C)
                 # Pick the tree that has the lowest minimal CCC found in the C vector
