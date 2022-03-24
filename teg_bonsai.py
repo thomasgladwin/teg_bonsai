@@ -98,13 +98,15 @@ class Tree():
                 #
                 tree0 = self.teg_tree_inner(X_1, y_1)
                 C, nodes_collapsed = self.prune_the_tree(tree0)
+                best_collapse_seq_end = np.argmin(C)
+                nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
                 tree0_CV = self.tree_copy(tree0, X_2, y_2)
                 #print(tree0_CV)
-                min_C_CV = self.f_C(tree0_CV, nodes_collapsed)
+                min_C_CV = self.f_C(tree0_CV, nodes_collapsed_choice)
                 #C_CV, nodes_collapsed_CV = self.prune_the_tree(tree0_CV)
                 #min_C_CV = np.min(C_CV)
                 tree0_null = self.tree_copy(tree0, X_null, y_null)
-                min_C_null = self.f_C(tree0_null, nodes_collapsed)
+                min_C_null = self.f_C(tree0_null, nodes_collapsed_choice)
                 #C_null, nodes_collapsed_null = self.prune_the_tree(tree0_null)
                 #min_C_null = np.min(C_null)
                 #
