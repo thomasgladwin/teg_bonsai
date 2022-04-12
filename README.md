@@ -27,7 +27,7 @@ LogicalInd = (X[:, 0] >= 0.8) & (X[:, 2] < 0.33)
 y[LogicalInd] = 1
 y_true = y
 y = y + 0.1 * np.random.random_sample(size=(nObs))
-alpha0 = 0.5
+alpha0 = None
 beta0_vec = [0.01, np.inf]
 tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples, internal_cross_val=internal_cross_val, beta0_vec=beta0_vec)
 Output = tree.build_tree()
@@ -57,7 +57,7 @@ An XOR example that the traditional tree would fail on but the current implement
 nObs = 1500
 nPred = 4
 maxDepth = 4 # Max. number of splits
-alpha0 = 0.5
+alpha0 = 0.01
 peek_ahead_max_depth = 1
 nSamples = 5
 internal_cross_val = 1
