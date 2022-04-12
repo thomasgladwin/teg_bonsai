@@ -10,7 +10,7 @@ from scipy import stats
 
 class Tree():
 
-    def __init__(self, X, y, maxDepth, alpha0, peek_ahead_max_depth=0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, internal_cross_val=0, beta0_vec = [0, 0]):
+    def __init__(self, X, y, maxDepth, alpha0 = None, peek_ahead_max_depth=0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, cut_middle_y=0, no_downstream_feature_repeats=0, internal_cross_val=0, internal_cross_val_nodes=1, treegrowth_CV=0, beta0 = 0, beta0_vec = [0, 0]):
         self.X = X
         self.y = y
         self.maxDepth = maxDepth
@@ -19,10 +19,56 @@ class Tree():
         self.split_val_quantiles = split_val_quantiles
         self.peek_ahead_quantiles = peek_ahead_quantiles
         self.nSamples = nSamples
+        self.cut_middle_y = cut_middle_y
+        self.no_downstream_feature_repeats = no_downstream_feature_repeats
         self.internal_cross_val = internal_cross_val
+        self.internal_cross_val_nodes = internal_cross_val_nodes
+        self.treegrowth_CV = treegrowth_CV
+        self.beta0 = beta0
         self.beta0_vec = beta0_vec
         self.peek_ahead_depth = 0 # Changed in loop in build_tree
         self.tree_info = []
+        self.current_node_index = 0
+
+        if self.cut_middle_y == 1:
+            q = np.quantile(self.y, [0.33, 0.66])
+            self.X = self.X[(self.y < q[0]) | (self.y > q[1]), :]
+            self.y = self.y[(self.y < q[0]) | (self.y > q[1])]
+
+        if self.alpha0 == None:
+            self.f_auto_alpha()
+
+    def f_auto_alpha(self):
+        self.alpha0 = 0
+        current_d_alpha = 0.1
+        min_d_alpha = 0.006
+        nIts_per_alpha = 100
+        print("Finding alpha:")
+        while abs(current_d_alpha) > min_d_alpha:
+            print('\tAlpha = ', self.alpha0)
+            n_non_empty_tree = 0
+            for iIt in range(nIts_per_alpha):
+                perm_indices = np.random.permutation(len(self.y))
+                y_perm = self.y[perm_indices]
+                tree0 = self.teg_tree_inner(self.X, y_perm)
+                C, nodes_collapsed = self.prune_the_tree(tree0)
+                # print(C)
+                # print(nodes_collapsed)
+                best_collapse_seq_end = np.argmin(C)
+                if (best_collapse_seq_end < (len(C) - 1)):
+                    n_non_empty_tree = n_non_empty_tree + 1
+            p = n_non_empty_tree / nIts_per_alpha # False-positive tree
+            if current_d_alpha > 0:
+                if p < 0.05:
+                    current_d_alpha = -abs(current_d_alpha) / 2
+            if current_d_alpha < 0:
+                if p >= 0.05:
+                    current_d_alpha = abs(current_d_alpha) / 2
+            self.alpha0 = self.alpha0 + current_d_alpha
+            if (self.alpha0 < 0):
+                self.alpha0 = 0
+            print('\t-> p, new alpha, new dAlpha = ', p, self.alpha0, current_d_alpha)
+        print('Auto-selected alpha = ', self.alpha0);
 
     def build_tree(self):
         tree0 = []
@@ -98,19 +144,19 @@ class Tree():
                 #
                 tree0 = self.teg_tree_inner(X_1, y_1)
                 C, nodes_collapsed = self.prune_the_tree(tree0)
+
                 best_collapse_seq_end = np.argmin(C)
                 nodes_collapsed_choice = nodes_collapsed[0:(best_collapse_seq_end + 1)]
                 tree0_CV = self.tree_copy(tree0, X_2, y_2)
-                #print(tree0_CV)
-                min_C_CV = self.f_C(tree0_CV, nodes_collapsed_choice)
-                #C_CV, nodes_collapsed_CV = self.prune_the_tree(tree0_CV)
-                #min_C_CV = np.min(C_CV)
+                min_C_CV_original_pruning = self.f_C(tree0_CV, nodes_collapsed_choice)
+                C_CV, nodes_collapsed_CV = self.prune_the_tree(tree0_CV)
+                min_C_CV = np.min(C_CV)
                 tree0_null = self.tree_copy(tree0, X_null, y_null)
                 min_C_null = self.f_C(tree0_null, nodes_collapsed_choice)
                 #C_null, nodes_collapsed_null = self.prune_the_tree(tree0_null)
                 #min_C_null = np.min(C_null)
                 #
-                C_min_v_crossval.append(min_C_CV)
+                C_min_v_crossval.append(min_C_CV_original_pruning)
                 C_min_v_null.append(min_C_null)
                 if self.internal_cross_val == 1:
                     best_C_min_to_use = min_C_CV
@@ -123,7 +169,10 @@ class Tree():
                     best_sd_y = sd_y_1
                     best_tree = tree0
                     best_C = C
-                    best_nodes_collapsed = nodes_collapsed
+                    if (self.internal_cross_val == 1) and (self.internal_cross_val_nodes == 1):
+                        best_nodes_collapsed = nodes_collapsed_CV
+                    else:
+                        best_nodes_collapsed = nodes_collapsed
             mean_y = best_mean_y
             sd_y = best_sd_y
             tree0 = best_tree
@@ -143,32 +192,44 @@ class Tree():
         else:
             return collapsed_tree, np.NaN, tree0, C_min_v_crossval, C_min_v_null, p
 
-    def teg_tree_inner(self, X, y, iDepth=0, node_index_v = [0], prev_terminal_node_pred=np.nan):
+    def teg_tree_inner(self, X, y, iDepth=0, prev_terminal_node_pred=np.nan, visited_features_v = None):
+        if not isinstance(visited_features_v, np.ndarray):
+            visited_features_v = np.array([])
         # print("Params: ", twostep, internalEnsemble)
         if (iDepth == 0):
-            node_index_v[0] = 0
+            self.current_node_index = 0
         else:
-            node_index_v[0] = node_index_v[0] + 1
+            self.current_node_index = self.current_node_index + 1
         # print(node_index_v)
         if len(y) > 0:
             terminal_node_pred = np.nanmean(y)
         else:
             terminal_node_pred = 0
-        SS_pre_split = self.f_SS(y)
+        SS_pre_split = self.f_SS_assigned_to_node(y)
         # Check whether maxdepth passed or y is empty
         if (iDepth >= self.maxDepth) or (len(y) <= 1) or (SS_pre_split == 0):
             if len(y) > 0:
                 terminal_node_pred = np.nanmean(y)
             else:
                 terminal_node_pred = prev_terminal_node_pred
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, self.current_node_index, iDepth, y], np.NaN, np.NaN]
         # Create branches
         # Check one step ahead
         best_split_feature = np.NaN
         best_split_val = np.NaN
         SS_best = np.inf
+        if self.treegrowth_CV == 1:
+            perm_indices = np.random.permutation(len(y))
+            a = int(np.floor(len(y) / 2))
+            ind_for_splitval = perm_indices[1:a]
+            ind_for_feature_comparison = perm_indices[a:]
+        else:
+            ind_for_splitval = range(len(y))
+            ind_for_feature_comparison = range(len(y))
         for iFeature1 in range(X.shape[1]):
-            best_split_val_this, SS_best_this = self.f_get_best_split_val(iFeature1, y, X, self.maxDepth - iDepth)
+            if self.no_downstream_feature_repeats and (np.sum(np.array(visited_features_v) == iFeature1) > 0):
+                continue
+            best_split_val_this, SS_best_this = self.f_get_best_split_val(iFeature1, y, X, ind_for_splitval, ind_for_feature_comparison, self.maxDepth - iDepth)
             if SS_best_this < SS_best:
                 #print("New best!")
                 best_split_feature = iFeature1
@@ -180,14 +241,14 @@ class Tree():
                 terminal_node_pred = np.nanmean(y)
             else:
                 terminal_node_pred = prev_terminal_node_pred
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y], np.NaN, np.NaN]
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, self.current_node_index, iDepth, y], np.NaN, np.NaN]
         ind_left = (X[:, best_split_feature] < best_split_val)
         ind_right = (X[:, best_split_feature] >= best_split_val)
         SS_left = self.f_SS(y[ind_left])
         SS_right = self.f_SS(y[ind_right])
-        best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y), node_index_v[0], iDepth, y]
-        branch_left = self.teg_tree_inner(X[ind_left, :], y[ind_left], iDepth + 1, prev_terminal_node_pred=terminal_node_pred)
-        branch_right = self.teg_tree_inner(X[ind_right, :], y[ind_right], iDepth + 1)
+        best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y), self.current_node_index, iDepth, y]
+        branch_left = self.teg_tree_inner(X[ind_left, :], y[ind_left], iDepth + 1, prev_terminal_node_pred=terminal_node_pred, visited_features_v=np.append(visited_features_v, best_split_feature))
+        branch_right = self.teg_tree_inner(X[ind_right, :], y[ind_right], iDepth + 1, visited_features_v=np.append(visited_features_v, best_split_feature))
         return [best_split, branch_left, branch_right]
 
     def f_get_best_SS_peek(self, y, X, this_peek_ahead_depth, peek_ahead_maxDepth_limiter, current_peek_depth = 0):
@@ -215,7 +276,22 @@ class Tree():
             #print(">>> best_feature_peek: ", best_feature_peek, ", best_val_peek: ", best_val_peek, ", best_SS: ", best_SS)
         return best_SS
 
-    def f_get_best_split_val(self, iFeature1, y, X, peek_ahead_maxDepth_limiter):
+    def f_get_SS_for_split(self, iFeature1, val1, X, y, peek_ahead_maxDepth_limiter):
+        ind_left = (X[:, iFeature1] < val1)
+        ind_right = (X[:, iFeature1] >= val1)
+        SS_best_over_peeks = np.inf
+        for this_peek_ahead_depth in range(self.peek_ahead_depth + 1):
+            SS_left = self.f_get_best_SS_peek(y[ind_left], X[ind_left, :], this_peek_ahead_depth,
+                                              peek_ahead_maxDepth_limiter)
+            SS_right = self.f_get_best_SS_peek(y[ind_right], X[ind_right, :], this_peek_ahead_depth,
+                                               peek_ahead_maxDepth_limiter)
+            # print(iFeature1, val1, SS_left, SS_right)
+            SS_this = SS_left + SS_right
+            if (SS_this < SS_best_over_peeks):
+                SS_best_over_peeks = SS_this
+        return SS_best_over_peeks
+
+    def f_get_best_split_val(self, iFeature1, y, X, ind_for_splitval, ind_for_feature_comparison, peek_ahead_maxDepth_limiter):
         best_split_val = np.NaN
         SS_best = np.inf
         if len(self.split_val_quantiles) == 0:
@@ -223,18 +299,15 @@ class Tree():
         else:
             splitting_vals1 = np.quantile(X[:, iFeature1], split.split_val_quantiles)
         for val1 in splitting_vals1:
-            ind_left = (X[:, iFeature1] < val1)
-            ind_right = (X[:, iFeature1] >= val1)
-            for this_peek_ahead_depth in range(self.peek_ahead_depth + 1):
-                SS_left = self.f_get_best_SS_peek(y[ind_left], X[ind_left, :], this_peek_ahead_depth, peek_ahead_maxDepth_limiter)
-                SS_right = self.f_get_best_SS_peek(y[ind_right], X[ind_right, :], this_peek_ahead_depth, peek_ahead_maxDepth_limiter)
-                # print(iFeature1, val1, SS_left, SS_right)
-                SS_this = SS_left + SS_right
-                if (SS_this < SS_best):
-                    SS_best = SS_this
-                    best_split_val = val1
+            SS_this = self.f_get_SS_for_split(iFeature1, val1, X[ind_for_splitval, :], y[ind_for_splitval], peek_ahead_maxDepth_limiter)
+            if SS_this < SS_best:
+                SS_best = SS_this
+                best_split_val = val1
             #print(">> val1: ", val1, ", SS_this: ", SS_this)
         #print(iFeature1, best_split_val, SS_best)
+        SS_best = self.f_get_SS_for_split(iFeature1, best_split_val, X[ind_for_feature_comparison, :], y[ind_for_feature_comparison], peek_ahead_maxDepth_limiter)
+        p = np.sum(splitting_vals1 < best_split_val) / len(splitting_vals1)
+        SS_best = SS_best + self.beta0 * (1 - p * (1 - p) / 0.25) * len(self.y) # beta0 adjusts SS_best for feature selection but not split-point
         return best_split_val, SS_best
 
     def f_SS_for_split(self, v):
@@ -249,6 +322,10 @@ class Tree():
             return_val = self.f_SS(v) * (1 + beta0_scaler)
         return return_val
 
+    def f_SS_assigned_to_node(self, v):
+        return_val = self.f_SS(v)
+        return return_val
+
     def f_SS(self, v):
         if len(v) <= 1:
             return 0
@@ -256,24 +333,24 @@ class Tree():
         return return_val
 
     # Generate tree with alternative SS_pre_split
-    def tree_copy(self, tree0, X_new, y_new, iDepth=0, node_index_v = [0], previous_terminal_node_pred=np.nan):
+    def tree_copy(self, tree0, X_new, y_new, iDepth=0, node_index_v = None, previous_terminal_node_pred=np.nan):
         #print(tree0[0][0:4], node_index_v, iDepth)
         if (iDepth == 0):
-            node_index_v[0] = 0
+            self.current_node_index = 0
         else:
-            node_index_v[0] = node_index_v[0] + 1
+            self.current_node_index = self.current_node_index + 1
         # print(node_index_v)
         if len(y_new) == 0:
             terminal_node_pred = previous_terminal_node_pred
         else:
             terminal_node_pred = np.nanmean(y_new)
-        SS_pre_split = self.f_SS(y_new)
+        SS_pre_split = self.f_SS_assigned_to_node(y_new)
         if len(y_new) == 0:
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y_new], np.NaN, np.NaN]
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, self.current_node_index, iDepth, y_new], np.NaN, np.NaN]
         if not(isinstance(tree0, list)):
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y_new], np.NaN, np.NaN]
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, self.current_node_index, iDepth, y_new], np.NaN, np.NaN]
         if np.isnan(tree0[0][0]):
-            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, node_index_v[0], iDepth, y_new], np.NaN, np.NaN]
+            return [[np.NaN, terminal_node_pred, SS_pre_split, 0, 0, 0, self.current_node_index, iDepth, y_new], np.NaN, np.NaN]
         #print('Non-terminal node')
         best_split_feature = tree0[0][0]
         best_split_val = tree0[0][1]
@@ -281,7 +358,7 @@ class Tree():
         ind_right = (X_new[:, best_split_feature] >= best_split_val)
         SS_left = self.f_SS(y_new[ind_left])
         SS_right = self.f_SS(y_new[ind_right])
-        best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y_new), node_index_v[0], iDepth, y_new]
+        best_split = [best_split_feature, best_split_val, SS_pre_split, SS_left, SS_right, len(y_new), self.current_node_index, iDepth, y_new]
         branch_left = self.tree_copy(tree0[1], X_new[ind_left, :], y_new[ind_left], iDepth + 1, previous_terminal_node_pred=terminal_node_pred)
         branch_right = self.tree_copy(tree0[2], X_new[ind_right, :], y_new[ind_right], iDepth + 1, previous_terminal_node_pred=terminal_node_pred)
         #print(branch_left[0][0], branch_right[0][0])
@@ -298,15 +375,17 @@ class Tree():
             SS_left, N_left, depth_left = self.retrieve_info_from_terminal_nodes(this_tree[1], nodes_to_collapse_tmp)
             SS_right, N_right, depth_right = self.retrieve_info_from_terminal_nodes(this_tree[2], nodes_to_collapse_tmp)
             # print(N_left, N_right)
-            return (SS_left + SS_right), (N_left + N_right), max(depth_left, depth_right)
+            error_metric = SS_left + SS_right
+            return error_metric, (N_left + N_right), max(depth_left, depth_right)
 
     def f_C(self, this_tree, nodes_to_collapse_tmp = [-1]):
         #print('zz', nodes_to_collapse_tmp)
         if nodes_to_collapse_tmp[0] == -1:
             node_indices = []
-        this_SS, this_N, max_depth_terminals = self.retrieve_info_from_terminal_nodes(this_tree, nodes_to_collapse_tmp)
+        this_SS, this_N_nodes, max_depth_terminals = self.retrieve_info_from_terminal_nodes(this_tree, nodes_to_collapse_tmp)
         # print("fC: ", this_N, max_depth_terminals)
-        return this_SS + self.alpha0 * this_N
+        n_data_points = this_tree[0][5]
+        return this_SS / n_data_points + self.alpha0 * this_N_nodes
 
     def get_all_node_indices(self, this_tree, node_indices = [-1]):
         if node_indices[0] == -1:
@@ -444,3 +523,17 @@ def tree_prediction(X, tree0):
     for xrow in X:
         y_pred.append(tree_prediction_inner(xrow, tree0))
     return y_pred
+
+def describe_splits_in_tree(this_tree, splits_v = None):
+    if splits_v == None:
+        splits_v = []
+    def describe_splits_in_tree_inner(this_tree, splits_v=[]):
+        if not isinstance(this_tree, list):
+            return
+        splits_v.append(this_tree[0])
+        describe_splits_in_tree_inner(this_tree[1], splits_v)
+        describe_splits_in_tree_inner(this_tree[2], splits_v)
+    describe_splits_in_tree_inner(this_tree, splits_v)
+    if not isinstance(splits_v, list):
+        splits_v = []
+    return splits_v
