@@ -87,7 +87,7 @@ This would tend to  (after some time, it's not fast...) print out the correct so
 
 ```
 
-Thomas E. Gladwin (2022). thomasgladwin/teg_bonsai: Class version (v1.1). Zenodo. https://doi.org/10.5281/zenodo.6374306.
+Thomas Edward Gladwin. (2022). thomasgladwin/teg_bonsai: Auto-alpha version (v1.2). Zenodo. https://doi.org/10.5281/zenodo.6456317
 
 [![DOI](https://zenodo.org/badge/458932097.svg)](https://zenodo.org/badge/latestdoi/458932097)
 
