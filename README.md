@@ -4,13 +4,16 @@ Originally a practice project and for messing-around purposes: a regression tree
 
 First, I added "peek ahead" variation to deal with XOR patterns (and, up to a specified maximum peek-ahead depth, arbirtarily higher-order nested XOR's, although it gets slow quickly). "Peeking ahead" means: for each possible split, all possible immediately following splits (for a set of quantiles to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split; and this is repeated up to a given peek-ahead depth. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
 
-Second, it has an internal cross-validation option in which the tree is built on one randomly selected split-half of the data and pruned based on its application to the other, non-overlapping split-half; the best tree based on the cross-validated cost complexity criterion over a number of random splits is chosen. This is controlled by the combination of the nSamples parameter and setting internal_cross_val = 1. nSamples specifies the number of random splits over which the best tree is selected based on the cross-validated criterion.
+Second, it has an internal cross-validation option in which the tree is built on one randomly selected split-half of the data and selected and optionally additionally pruned based on its application to the other, non-overlapping split-half; the best tree based on the cross-validated cost complexity criterion over a number of random splits is chosen. This is controlled by the combination of the nSamples parameter and setting internal_cross_val = 1 and internal_cross_val_nodes = 1. nSamples specifies the number of random splits over which the best tree is selected based on the cross-validated criterion.
 
 Third, building on the cross-validation using independent sub-samples, a p-value is generated for null hypothesis significance testing. This is based on a random permutation of the cross-validation data. Thus, both the cross-validation and null sets are independent from the set used to create the tree under the null hypothesis of there being no dependence of the target y on the predictors X. The function returns the p-value for the one-sample t-test of the cross-validation-set minus null-set cost complexity criterion difference score over the random samples.
 
-Finally, a "beta" parameter can be added to the usual alpha pruning parameter, which punishes potential splits, during tree generation, below a given proportion of the original number of observations. This is controlled by a two-element vector: the proportion of observation when the punishment starts, and a coefficient for a linear proportional increase in sum of squares (infinity can be used to forbid small splits). The idea is to prevent what might be obviously spurious or theoretically unimportant splits that could nevertheless affect the branching. This would lead, hopefully, to more interpretable trees.
+Fourth, a "beta" parameter can be added to the usual alpha pruning parameter, which punishes potential splits, during tree generation, below a given proportion of the original number of observations. This is controlled by a two-element vector: the proportion of observation when the punishment starts, and a coefficient for a linear proportional increase in sum of squares (infinity can be used to forbid small splits). The idea is to prevent what might be obviously spurious or theoretically unimportant splits that could nevertheless affect the branching. This would lead, hopefully, to more interpretable trees.
 
-Example usage with sanity-check simulated data:
+Fifth, an auto-selected alpha parameter can be generated, by setting alpha0 = None.
+
+Example usage with sanity-check simulated data are provided in examples.py. E.g.,
+
 ```
 nObs = 1500
 nPred = 4
