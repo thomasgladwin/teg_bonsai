@@ -10,7 +10,7 @@ from scipy import stats
 
 class Tree():
 
-    def __init__(self, X, y, maxDepth, alpha0 = None, peek_ahead_max_depth=0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, cut_middle_y=0, no_downstream_feature_repeats=0, internal_cross_val=0, internal_cross_val_nodes=1, treegrowth_CV=0, beta0 = 0, beta0_vec = [0, 0]):
+    def __init__(self, X, y, maxDepth, alpha0 = None, baseline_features = None, peek_ahead_max_depth=0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, cut_middle_y=0, no_downstream_feature_repeats=0, internal_cross_val=0, internal_cross_val_nodes=1, treegrowth_CV=0, beta0 = 0, beta0_vec = [0, 0]):
         self.X = X
         self.y = y
         self.maxDepth = maxDepth
@@ -29,6 +29,7 @@ class Tree():
         self.peek_ahead_depth = 0 # Changed in loop in build_tree
         self.tree_info = []
         self.current_node_index = 0
+        self.baseline_features = baseline_features
 
         if self.cut_middle_y == 1:
             q = np.quantile(self.y, [0.33, 0.66])
@@ -41,8 +42,8 @@ class Tree():
     def f_auto_alpha(self):
         self.alpha0 = 0
         current_d_alpha = 0.1
-        min_d_alpha = 0.006
-        nIts_per_alpha = 100
+        min_d_alpha = 0.003
+        nIts_per_alpha = 200
         print("Finding alpha:")
         while abs(current_d_alpha) > min_d_alpha:
             print('\tAlpha = ', self.alpha0)
@@ -128,10 +129,15 @@ class Tree():
                 a = int(np.floor(len(self.y) / 2))
                 set1_indices = perm_indices[1:a]
                 set2_indices = perm_indices[a:]
+                # Split half used to build tree
                 y_1 = self.y[set1_indices]
                 X_1 = self.X[set1_indices, :]
+                # Split half used for cross-validation and NHST
                 y_2 = self.y[set2_indices]
                 X_2 = self.X[set2_indices, :]
+                set3_indices = np.random.permutation(set2_indices)
+                X_3 = self.X[set3_indices, :]
+
                 mean_y_1 = np.nanmean(y_1)
                 sd_y_1 = np.sqrt(np.var(y_1))
                 y_1 = (y_1 - mean_y_1) / sd_y_1
@@ -139,8 +145,12 @@ class Tree():
                 sd_y_2 = np.sqrt(np.var(y_2))
                 y_2 = (y_2 - mean_y_2) / sd_y_2
                 # Null distribution
-                y_null = np.random.permutation(y_2) # Already normalized
-                X_null = X_2.copy()
+                # y_null = np.random.permutation(y_2) # Already normalized
+                y_null = y_2
+                X_null = X_3 # Permuted X
+                if self.baseline_features != None:
+                    # Baseline columns of X_null remain statistically linked to y_null; other columns are randomized
+                    X_null[:, self.baseline_features] = X_2[:, self.baseline_features]
                 #
                 tree0 = self.teg_tree_inner(X_1, y_1)
                 C, nodes_collapsed = self.prune_the_tree(tree0)
