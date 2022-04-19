@@ -1,6 +1,6 @@
 # teg_bonsai
 
-Originally a practice project and for messing-around purposes: a regression tree function, a la The Elements of Statistical Learning, with some variations that might make it more suitable for certain research purposes. The functions are in teg_bonsai.py, and usage examples are in examples.py.
+Originally a practice project and for messing-around purposes, possibly some useful elements to it now: a regression tree function, a la The Elements of Statistical Learning, with some variations that might make it more suitable for certain research purposes. The functions are in teg_bonsai.py, and usage examples are in examples.py.
 
 First, there's a "peek ahead" variation to deal with XOR patterns (and, up to a specified maximum peek-ahead depth, arbirtarily higher-order nested XOR's, although it gets slow quickly). "Peeking ahead" means: for each possible split, all possible immediately following splits (for a set of quantiles to keep computation time down, trading off the resolution of the peek-ahead) are used to evaluate the first split; and this is repeated up to a given peek-ahead depth. This avoids the usual greedy algorithm's trap of not being able to recognize a split that is only good in combination with a subsequent split.
 
