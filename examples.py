@@ -8,7 +8,7 @@ import teg_bonsai
 #
 # Standard test
 #
-nObs = 600
+nObs = 400
 nPred = 6
 maxDepth = 4
 peek_ahead_max_depth = 0
@@ -24,6 +24,23 @@ tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, peek_ahead_max_depth=peek_ahead_m
 Output = tree.build_tree()
 # Output contains keys: tree, cost_complexity_criterion, best_peek_crit, raw_tree, CV_distr, null_distr, p
 # Access via, e.g., Output['p']
+
+#
+# Hierarchical NHST variation of the above data.
+#
+alpha0 =  0.0015625
+
+tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, baseline_features = [], peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples)
+Output = tree.build_tree()
+print(Output['p'])
+
+tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, baseline_features = [0, 1], peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples)
+Output = tree.build_tree()
+print(Output['p'])
+
+tree = teg_bonsai.Tree(X, y, maxDepth, alpha0, baseline_features = [0, 2], peek_ahead_max_depth=peek_ahead_max_depth, nSamples=nSamples)
+Output = tree.build_tree()
+print(Output['p'])
 
 #
 # XOR problem requiring peek-ahead
