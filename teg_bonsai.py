@@ -10,7 +10,7 @@ from scipy import stats
 
 class Tree():
 
-    def __init__(self, X, y, maxDepth, alpha0 = None, baseline_features = None, peek_ahead_max_depth=0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, cut_middle_y=0, no_downstream_feature_repeats=0, internal_cross_val=0, internal_cross_val_nodes=1, treegrowth_CV=0, beta0 = 0, beta0_vec = [0, 0]):
+    def __init__(self, X, y, maxDepth, alpha0 = None, baseline_features = None, peek_ahead_max_depth=0, split_val_quantiles = [], peek_ahead_quantiles = [], nSamples = 0, cut_middle_y=0, no_downstream_feature_repeats=0, internal_cross_val=0, internal_cross_val_nodes=0, treegrowth_CV=0, beta0 = 0, beta0_vec = [0, 0]):
         self.X = X
         self.y = y
         self.maxDepth = maxDepth
@@ -168,8 +168,10 @@ class Tree():
                 #
                 C_min_v_crossval.append(min_C_CV_original_pruning)
                 C_min_v_null.append(min_C_null)
+                delta_C = min_C_CV_original_pruning - min_C_null # Find cross-validated tree must distinct from null tree
                 if self.internal_cross_val == 1:
-                    best_C_min_to_use = min_C_CV
+                    # best_C_min_to_use = min_C_CV
+                    best_C_min_to_use = delta_C
                 else:
                     best_C_min_to_use = np.min(C)
                 # Pick the tree that has the lowest minimal CCC found in the C vector
@@ -183,6 +185,7 @@ class Tree():
                         best_nodes_collapsed = nodes_collapsed_CV
                     else:
                         best_nodes_collapsed = nodes_collapsed
+
             mean_y = best_mean_y
             sd_y = best_sd_y
             tree0 = best_tree
@@ -195,6 +198,12 @@ class Tree():
         #print(C)
         #print(nodes_collapsed)
         # print(len(C))
+
+        # Apply selected tree0 to full dataset to get consistent terminal nodes, independent of random split when best tree was found
+        mean_y = np.nanmean(self.y)
+        sd_y = np.sqrt(np.var(self.y))
+        tree0 = self.tree_copy(tree0, self.X, self.y)
+
         self.print_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
         collapsed_tree = self.collapse_tree(tree0, C, nodes_collapsed, mean_y, sd_y)
         if len(C) > 0:
