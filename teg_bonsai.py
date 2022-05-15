@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from scipy import stats
+from scipy.stats import binom
 
 # numpy.seterr(all='raise')
 
@@ -170,8 +170,8 @@ class Tree():
                 C_min_v_null.append(min_C_null)
                 delta_C = min_C_CV_original_pruning - min_C_null # Find cross-validated tree must distinct from null tree
                 if self.internal_cross_val == 1:
-                    # best_C_min_to_use = min_C_CV
-                    best_C_min_to_use = delta_C
+                    best_C_min_to_use = min_C_CV
+                    # best_C_min_to_use = delta_C
                 else:
                     best_C_min_to_use = np.min(C)
                 # Pick the tree that has the lowest minimal CCC found in the C vector
@@ -192,7 +192,8 @@ class Tree():
             C = best_C
             nodes_collapsed = best_nodes_collapsed
             d_for_NHST = np.array(C_min_v_crossval) - np.array(C_min_v_null)
-            p = scipy.stats.ttest_1samp(d_for_NHST, 0)
+            obs_CV_better = np.sum(d_for_NHST < 0)
+            p = 1 - binom.cdf(obs_CV_better, d_for_NHST.size, 0.5) # Ties are coded conservatively
 
         #print(tree0)
         #print(C)
