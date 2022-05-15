@@ -85,6 +85,8 @@ This would tend to  (after some time, it's not fast...) print out the correct so
 
 ```
 
-Thomas Edward Gladwin. (2022). thomasgladwin/teg_bonsai: Auto-alpha version (v1.2). Zenodo. https://doi.org/10.5281/zenodo.6456317
+Thomas Edward Gladwin. (2022). thomasgladwin/teg_bonsai: Binomial test (v1.3). Zenodo. https://doi.org/10.5281/zenodo.6551293
 
-[![DOI](https://zenodo.org/badge/458932097.svg)](https://zenodo.org/badge/latestdoi/458932097)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6551293.svg)](https://doi.org/10.5281/zenodo.6551293)
+
+
